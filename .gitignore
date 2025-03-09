@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env 
+
+build/
+*.egg-info/
+
+.anthropic_key
+
+bin/prompt/*
+tmp/*

@@ -1,0 +1,1 @@
+claude "Build the python module specified in @the_last_compiler.md"
