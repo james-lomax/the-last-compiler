@@ -1,165 +1,215 @@
 #!/usr/bin/env python3
-
-import argparse
 import os
-import subprocess
 import sys
+import argparse
+import subprocess
+import jinja2
 from pathlib import Path
-from jinja2 import Template
 
-# Jinja2 template for the Claude Code prompt
+# Jinja2 templates for prompts
 CLAUDE_PROMPT_TEMPLATE = """
-Read the spec and consider the weaknesses of spec: is it well defined enough to implement in a single python module? Are there any important unanswered questions? Are there any things you don't know how to do? Are any of these blockers to proceeding?
+# Instructions for implementing a Python module
+
+Read the spec below and consider its feasibility: is it well defined enough to implement in a single python module? Are there any important unanswered questions? Are there any things you don't know how to do? Are any of these blockers to proceeding?
 
 If no, Stop, and summarise why you cannot yet implement this spec as an error.
 
 If yes, describe what we need to do to implement this module, then implement it.
 
-The module is always tlc/{{ module_name }}.py
-
+The module should be created at tlc/{{ module_name }}.py
 {% if test_strategy %}
 If a test strategy is specified, implement it in tlc/tests/test_{{ module_name }}.py
 {% endif %}
 
-update pyproject.toml to add the new module entry
+Update the pyproject.toml file to add the new module entry point, using this format:
+```python
+[project.scripts]
+{{ command_name }} = "tlc.{{ module_name }}:main"
+```
 
-This script should be sufficient to implement the module, you must only add the {{ module_name }}.py module, and edit the pyproject.toml file.
+This script should be sufficient to implement the module. You must only add the {{ module_name }}.py module and edit the pyproject.toml file if needed.
+
+# Module Specification
+{{ specification }}
 """
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='The Last Compiler - Compile markdown specs into Python modules')
-    parser.add_argument('spec_file', type=str, help='Path to markdown specification file')
-    return parser.parse_args()
+NEW_MODULE_TEMPLATE = """# {module_name}.py
 
-def extract_module_name(spec_content):
-    """Extract module name from the spec content."""
-    # Assuming the module name is defined in the first line or can be derived from the filename
-    first_line = spec_content.strip().split('\n')[0]
-    if first_line.startswith('# '):
-        # Extract from markdown title, e.g., "# my_module.py" -> "my_module"
-        module_name = first_line[2:].strip()
-        if module_name.endswith('.py'):
-            module_name = module_name[:-3]
-        return module_name
-    return None
+## Inputs
 
-def generate_prompt(spec_content):
-    """Generate the prompt for Claude Code based on the spec content."""
-    module_name = extract_module_name(spec_content)
-    if not module_name:
-        raise ValueError("Could not extract module name from spec content")
-    
-    # Check if test strategy is mentioned in the spec
-    test_strategy = "test" in spec_content.lower()
-    
-    # Render the prompt template
-    template = Template(CLAUDE_PROMPT_TEMPLATE)
-    prompt = template.render(module_name=module_name, test_strategy=test_strategy)
-    
-    # Add the spec content to the prompt
-    full_prompt = f"{prompt}\n\nHere is the specification:\n\n{spec_content}"
-    
-    return full_prompt, module_name
+TODO define inputs
 
-def save_prompt(prompt, output_path):
-    """Save the prompt to a file."""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w') as f:
-        f.write(prompt)
+## Outputs
 
-def update_pyproject_toml(module_name):
-    """Update the pyproject.toml file with the new module entry."""
-    pyproject_path = Path('pyproject.toml')
-    if not pyproject_path.exists():
-        raise FileNotFoundError(f"Could not find {pyproject_path}")
-    
-    with open(pyproject_path, 'r') as f:
-        content = f.read()
-    
-    # Check if the module is already in the scripts section
-    script_entry = f"{module_name} = \"tlc.{module_name}:main\""
-    if script_entry in content:
-        print(f"Script entry for {module_name} already exists in pyproject.toml")
-        return
-    
-    # Add the new script entry
-    if "[project.scripts]" in content:
-        # Find the scripts section and add the new entry
-        lines = content.split('\n')
-        scripts_index = lines.index("[project.scripts]")
-        
-        # Find where the scripts section ends
-        end_index = len(lines)
-        for i in range(scripts_index + 1, len(lines)):
-            if lines[i].strip() and lines[i].startswith('['):
-                end_index = i
-                break
-        
-        # Insert the new script entry
-        lines.insert(end_index, f"{module_name} = \"tlc.{module_name}:main\"")
-        updated_content = '\n'.join(lines)
+TODO define outputs
+
+## Implementation
+
+TODO define implementation. Be really specific about what code to write, and where to write it.
+"""
+
+
+def convert_name(name):
+    """Convert between markdown file name and Python module name."""
+    if name.endswith('.md'):
+        # my-module-name.md -> my_module_name
+        return name[:-3].replace('-', '_')
     else:
-        # If there's no scripts section, add it
-        updated_content = f"{content.strip()}\n\n[project.scripts]\n{module_name} = \"tlc.{module_name}:main\"\n"
-    
-    with open(pyproject_path, 'w') as f:
-        f.write(updated_content)
-    
-    print(f"Updated pyproject.toml with {module_name} script entry")
+        # my_module_name -> my-module-name.md
+        return name.replace('_', '-') + '.md'
 
-def run_claude_code(prompt_path):
-    """Run Claude Code with the generated prompt."""
-    escaped_prompt = f"Follow the instructions in {prompt_path}".replace('"', '\\"')
-    command = f'claude "{escaped_prompt}"'
-    
-    print(f"Running command: {command}")
-    
-    # Use a simpler approach that directly connects to the terminal
-    try:
-        # This will connect the process directly to the user's terminal
-        return subprocess.run(command, shell=True, check=False).returncode
-    except KeyboardInterrupt:
-        print("\nProcess interrupted by user")
-        return 1
-    except Exception as e:
-        print(f"Error running Claude: {e}", file=sys.stderr)
-        return 1
 
-def main():
-    args = parse_args()
-    spec_file = args.spec_file
-    
-    if not os.path.exists(spec_file):
-        print(f"Error: Specification file {spec_file} does not exist")
-        sys.exit(1)
-    
-    with open(spec_file, 'r') as f:
+def render_prompt(spec_path):
+    """Render the Claude prompt using the specification markdown file."""
+    with open(spec_path, 'r') as f:
         spec_content = f.read()
     
-    try:
-        prompt, module_name = generate_prompt(spec_content)
-        prompt_path = os.path.join('bin', 'prompt', 'the_last_compiler.md')
-        save_prompt(prompt, prompt_path)
+    module_name = convert_name(os.path.basename(spec_path))
+    command_name = module_name.replace('_', '-')
+    
+    # Extract test strategy info - simple check if tests are mentioned
+    test_strategy = "test" in spec_content.lower()
+    
+    template = jinja2.Template(CLAUDE_PROMPT_TEMPLATE)
+    prompt = template.render(
+        module_name=module_name,
+        command_name=command_name,
+        specification=spec_content,
+        test_strategy=test_strategy
+    )
+    
+    # Ensure the prompt directory exists
+    os.makedirs('bin/prompt', exist_ok=True)
+    
+    # Write the prompt to the expected location
+    with open('bin/prompt/the_last_compiler.md', 'w') as f:
+        f.write(prompt)
+    
+    return prompt
+
+
+def run_claude_code():
+    """Run Claude Code with the generated prompt."""
+    cmd = 'claude "Follow the instructions in bin/prompt/the_last_compiler.md"'
+    return subprocess.call(cmd, shell=True)
+
+
+def create_new_module(module_name):
+    """Create a new markdown template file for a module."""
+    if not module_name.endswith('.md'):
+        module_name += '.md'
+    
+    # Check if file already exists
+    if os.path.exists(module_name):
+        print(f"Error: File {module_name} already exists")
+        return False
+    
+    # Create the new markdown file
+    with open(module_name, 'w') as f:
+        python_module_name = os.path.basename(module_name).replace('-', '_')
+        if python_module_name.endswith('.md'):
+            python_module_name = python_module_name[:-3]
         
-        print(f"Generated prompt for {module_name}")
-        print(f"Running Claude Code to implement the module...")
-        
-        # Run Claude Code with the generated prompt
-        exit_code = run_claude_code(prompt_path)
-        
-        if exit_code != 0:
-            print(f"Error: Claude Code exited with code {exit_code}")
-            sys.exit(exit_code)
-        
-        # Update pyproject.toml with the new module entry
-        update_pyproject_toml(module_name)
-        
-        print(f"Successfully compiled {spec_file} to tlc/{module_name}.py")
-        print(f"You can now run the module with: uv run {module_name}")
-        
-    except Exception as e:
-        # Don't wrap exceptions, show the full stack trace
-        raise
+        content = NEW_MODULE_TEMPLATE.format(module_name=python_module_name)
+        f.write(content)
+    
+    print(f"Created new module specification at {module_name}")
+    return True
+
+
+def compile_module(spec_path):
+    """Compile the module specified in the markdown file."""
+    if not os.path.exists(spec_path):
+        print(f"Error: Specification file {spec_path} not found")
+        return False
+    
+    render_prompt(spec_path)
+    print(f"Compiling module from {spec_path}...")
+    return run_claude_code()
+
+
+def ensure_module_compiled(spec_path):
+    """Ensure the module is compiled before running/testing it."""
+    module_name = convert_name(os.path.basename(spec_path))
+    module_path = f"tlc/{module_name}.py"
+    
+    if not os.path.exists(module_path):
+        print(f"Module not found. Compiling {spec_path} first...")
+        if not compile_module(spec_path):
+            return False
+    return True
+
+
+def test_module(spec_path):
+    """Test the module specified in the markdown file."""
+    if not ensure_module_compiled(spec_path):
+        return False
+    
+    module_name = convert_name(os.path.basename(spec_path))
+    test_path = f"tlc/tests/test_{module_name}.py"
+    
+    if not os.path.exists(test_path):
+        print(f"No tests found at {test_path}")
+        return False
+    
+    print(f"Running tests for {module_name}...")
+    return subprocess.call([sys.executable, "-m", "pytest", test_path])
+
+
+def run_module(spec_path, args):
+    """Run the module specified in the markdown file with arguments."""
+    if not ensure_module_compiled(spec_path):
+        return False
+    
+    module_name = convert_name(os.path.basename(spec_path))
+    command_name = module_name.replace('_', '-')
+    
+    print(f"Running {command_name} with args: {' '.join(args)}")
+    cmd = ["uv", "run", command_name] + args
+    return subprocess.call(cmd)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="The Last Compiler - compile markdown specs to Python modules")
+    subparsers = parser.add_subparsers(dest="command", help="Sub-command to run")
+    
+    # tlc new
+    new_parser = subparsers.add_parser("new", help="Create a new module specification")
+    new_parser.add_argument("spec_file", help="Name of the new module specification file")
+    
+    # tlc compile
+    compile_parser = subparsers.add_parser("compile", help="Compile a module from specification")
+    compile_parser.add_argument("spec_file", help="Path to the module specification file")
+    
+    # tlc test
+    test_parser = subparsers.add_parser("test", help="Test a compiled module")
+    test_parser.add_argument("spec_file", help="Path to the module specification file")
+    
+    # tlc run
+    run_parser = subparsers.add_parser("run", help="Run a compiled module")
+    run_parser.add_argument("spec_file", help="Path to the module specification file")
+    run_parser.add_argument("module_args", nargs="*", help="Arguments to pass to the module")
+    
+    # tlc version
+    subparsers.add_parser("version", help="Print the tlc version")
+    
+    args = parser.parse_args()
+    
+    if args.command == "new":
+        return 0 if create_new_module(args.spec_file) else 1
+    elif args.command == "compile":
+        return 0 if compile_module(args.spec_file) else 1
+    elif args.command == "test":
+        return 0 if test_module(args.spec_file) else 1
+    elif args.command == "run":
+        return 0 if run_module(args.spec_file, args.module_args) else 1
+    elif args.command == "version":
+        print("tlc version 0.1.0")
+        return 0
+    else:
+        parser.print_help()
+        return 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

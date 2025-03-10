@@ -35,17 +35,49 @@ uv init my_project
 cd my_project
 ```
 
-Write your module specification files describing what the code should do. Then use the `tlc` command to compile the markdown specifications into a python module:
+### Creating a new module specification
+
+Create a new module specification template:
 
 ```bash
-tlc module_specification.md
+tlc new my-module-name.md
+```
+
+This creates a markdown file with a template for you to fill in with your module specification.
+
+### Compiling a module
+
+Once you've written your specification, compile it into a Python module:
+
+```bash
+tlc compile my-module-name.md
 ```
 
 The tool will:
 1. Evaluate if the specification is well-defined
-2. Generate the Python module at `tlc/module_name.py`
+2. Generate the Python module at `tlc/my_module_name.py`
 3. Update the pyproject.toml file
-4. Implement tests if specified
+4. Implement tests if specified in the specification
+
+### Testing a module
+
+Run tests for a compiled module:
+
+```bash
+tlc test my-module-name.md
+```
+
+This will compile the module first if necessary, then run the tests.
+
+### Running a module
+
+Execute a compiled module with arguments:
+
+```bash
+tlc run my-module-name.md [args]
+```
+
+This will compile the module first if necessary, then run it with the provided arguments.
 
 ### Specification recommendations
 
