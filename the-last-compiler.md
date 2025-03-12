@@ -6,7 +6,7 @@
 
 ## Outputs
 
-- A python module at tlc/${my_module_name}.py
+- A python module at tlc/${my_module_name}.py -- this file is overwritten by the compiler every time, so we must delete it before running the claude commands.
 - An updated uv pyproject.toml file
 
 ## Implementation
@@ -16,8 +16,8 @@
     - tlc new my-module-name.md -- Create a new template module spec file
     - tlc compile my-module-name.md -- Compile the module to its python module
     - tlc test my-module-name.md -- (Compile and then) Run the tests for the module if they exist
-    - tlc run my-module-name.md {args} -- (Compile and then) Run the module with the given args
-    - tlc version -- Prints "tlc version 0.1.0"
+    - tlc run my-module-name.md {args} -- Run the module with the given args
+    - tlc version -- Prints "tlc version 0.2.0"
 
 ### General instructions
 
