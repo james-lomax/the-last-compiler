@@ -9,4 +9,4 @@ dependencies = [
 ]
 
 [project.scripts]
-tlc = "tlc.the_last_compiler:main" 
+sanity-check-spec = "tlc.sanity_check_spec:main"

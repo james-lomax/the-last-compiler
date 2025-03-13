@@ -10,3 +10,7 @@ build/
 
 bin/prompt/*
 tmp/*
+
+.DS_Store
+
+slop/logs/*
