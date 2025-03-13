@@ -33,7 +33,7 @@ The specification files should generally define:
 Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
 ```
 
-## Chat tree - Sense check and Q&A prep
+## Chat chain - Sense check and Q&A prep
 
 The following section describes the precise prompts we should use with the Chatmodel.
 
@@ -47,7 +47,7 @@ Read the spec
 Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions?
 ```
 
-### Branch 1 - is this ready or do we need to improve the spec?
+We will log the chain of thought here in the debug log, but not print to the console.
 
 Prompt the AI to think about things that are unclear:
 
@@ -74,21 +74,9 @@ let build_failed = response is "no"
 Are there unanswered questions? Just answer yes or no, nothing else.
 ```
 
-let unanswered_questions = response is "yes"
-
-
-### Branch 2 - generate q&a file
-
-If unanswered_questions is true, we need to generate a q&a file.
-
-Follow on from the initial sense check.
+If there are unanswered questions, we need to generate a q&a file.
 
 ```jinja2
-{% if q_and_a %}
-Here is a Q&A from our last review of this document:
-
-{q_and_a}{% endif %}
-
 List all the unanswered questions or clarifications, and besides each one, write your best assumption on the answer.
 
 Do not number the questions, just list them like this:
@@ -99,19 +87,19 @@ Do not number the questions, just list them like this:
 If there is an **Answer** from the last review, you must keep it the same.
 ```
 
-let q_and_a = response
+Store response in `slop/${module_name}.questions.md` - overwrite if it exists.
 
-Store q_and_a in `slop/${module_name}.questions.md` - overwrite if it exists.
+## How to construct a chat chain
+
+TODO: Use simple-chat-chain
 
 ## Logging
 
-Use the standard logging library.
+Use the standard logging library. Logging in the CLI is INFO by default, but we store in `slop/logs/${module_name}.log`. The format of the logs in the console will be to just show the message and nothing else. The format of the logs in the file will include the timestamp, logger name, log level and message.
 
 - Log chat prompts and responses between the AI and user with log level `DEBUG`.
 - Log the step we're doing as level `INFO`.
 - Log the files we update as level `INFO`.
-
-Logging in the CLI is INFO by default, but we store in `slop/logs/${module_name}.log`.
 
 ## Coding notes
 

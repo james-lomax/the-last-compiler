@@ -28,7 +28,10 @@ class SimpleChat:
             api_key = f.read().strip()
         
         # Initialize the ChatAnthropic client
-        self.client = ChatAnthropic(anthropic_api_key=api_key)
+        self.client = ChatAnthropic(
+            model="claude-3-7-sonnet-latest",
+            api_key=api_key,
+        )
         
         # Initialize conversation history with system prompt
         self.history = [SystemMessage(content=system_prompt)]
