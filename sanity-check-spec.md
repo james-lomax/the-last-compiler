@@ -1,4 +1,4 @@
-# sanity-check-spec
+# sanity-check-spec.py
 
 This program is the first step in the slop compiler. It takes a specification file and checks if it is well defined enough to be compiled into code, and generates a Q&A file to handle ambiguities.
 
@@ -10,13 +10,19 @@ Usage:
 sanity-check-spec module-name.md
 ```
 
+## Import interfaces
+
+- See @simple-chat-chain.md for information how to use the SimpleChat interface to interact with the language model.
+
 ## Module name
 
 The module name is of the form `module-name`. This refers to a module defined in `module-name.md`, and implemented in `module_name.py`.
 
 ## Language Model
 
-The program uses the `claude-3-7-sonnet-latest` model via the LangChain ChatAnthropic interface. The API key should be stored in a file named `.anthropic_key` in the root directory.
+The program uses the `claude-3-7-sonnet-latest` model via the LangChain ChatAnthropic interface and @simple-chat-chain.md. The API key should be stored in a file named `.anthropic_key` in the root directory.
+
+Always implement these prompts verbatim, using jinja2 templates.
 
 ## System prompt
 
@@ -88,10 +94,6 @@ If there is an **Answer** from the last review, you must keep it the same.
 ```
 
 Store response in `slop/${module_name}.questions.md` - overwrite if it exists.
-
-## How to construct a chat chain
-
-TODO: Use simple-chat-chain
 
 ## Logging
 
