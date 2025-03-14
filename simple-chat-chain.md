@@ -1,5 +1,9 @@
 # simple_chat_chain.py
 
+# Use interface
+
+- @langchain-logging.md for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.
+
 ## Usage
 
 Example:
@@ -13,18 +17,14 @@ question_template = "Hello, my name is {{ name }}. {{ question }}"
 
 capital_of_france = chat.call(
   question_template,
-  {
-    "name": "Alice",
-    "question": "What's the capital of France?"
-  }
+  name="Alice",
+  question="What's the capital of France?"
 )
 
 population_paris = chat.call(
   question_template,
-  {
-    "name": "Alice",
-    "question": "What's the population of Paris?"
-  }
+  name="Alice",
+  question="What's the population of Paris?"
 )
 ```
 
@@ -37,7 +37,14 @@ class SimpleChat:
     def __init__(self, system_prompt: str):
         pass
 
-    def call(self, prompt_template: str, input: dict) -> str:
+    def call(self, prompt_template: str, **kwargs) -> str:
+        """
+          - Formats the prompt template using Jinja2 with the input arguments
+          - Appends the formatted prompt as a HumanMessage to the chat history, and passes this all to the LLM
+          - return the response
+          - Appends the response to the chat history
+          - After each prompt invocation, log the chat history using log_chat(messages)
+        """
         pass
 
     def clone(self) -> 'Chat':
@@ -60,3 +67,7 @@ ChatAnthropic(
     api_key=api_key,
 )
 ```
+
+## Logging
+
+- Use @langchain-logging.md for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.

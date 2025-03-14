@@ -1,83 +1,85 @@
 import os
-import copy
-import jinja2
-from typing import Dict, Any, List, Tuple
-
+from copy import deepcopy
+from typing import List
+from jinja2 import Template
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from .langchain_logging import log_chat
+
+def _read_api_key() -> str:
+    """Read the Anthropic API key from .anthropic_key file."""
+    # Try current directory first
+    if os.path.exists(".anthropic_key"):
+        with open(".anthropic_key", "r") as f:
+            return f.read().strip()
+    
+    # Try user's home directory
+    home_key_path = os.path.expanduser("~/.anthropic_key")
+    if os.path.exists(home_key_path):
+        with open(home_key_path, "r") as f:
+            return f.read().strip()
+    
+    raise FileNotFoundError("Could not find .anthropic_key in current directory or home directory")
 
 class SimpleChat:
-    """
-    A simple chat interface for interacting with Anthropic's Claude model.
-    Maintains conversation history and allows for forking conversations.
-    """
-    
     def __init__(self, system_prompt: str):
         """
-        Initialize a new chat session with a system prompt.
+        Initialize a SimpleChat instance with a system prompt.
         
         Args:
-            system_prompt: The system prompt that sets the context for the conversation
+            system_prompt: The system prompt to use for all conversations
         """
-        # Read API key from .anthropic_key file
-        api_key_path = os.path.expanduser("~/.anthropic_key")
-        if not os.path.exists(api_key_path):
-            api_key_path = ".anthropic_key"  # Try current directory
-        
-        with open(api_key_path, "r") as f:
-            api_key = f.read().strip()
-        
-        # Initialize the ChatAnthropic client
-        self.client = ChatAnthropic(
+        self.api_key = _read_api_key()
+        self.llm = ChatAnthropic(
             model="claude-3-7-sonnet-latest",
-            api_key=api_key,
+            api_key=self.api_key,
         )
-        
-        # Initialize conversation history with system prompt
-        self.history = [SystemMessage(content=system_prompt)]
-        
-        # Store the system prompt for cloning
-        self.system_prompt = system_prompt
-        
-        # Initialize Jinja2 environment for template rendering
-        self.jinja_env = jinja2.Environment()
+        self.history: List[BaseMessage] = [SystemMessage(content=system_prompt)]
     
-    def call(self, prompt_template: str, input: Dict[str, Any]) -> str:
+    def call(self, prompt_template: str, **kwargs) -> str:
         """
-        Render the prompt template with the input, send it to the model,
-        and update the conversation history.
+        Format the prompt template with kwargs and get a response from the LLM.
         
         Args:
-            prompt_template: A Jinja2 template string for the prompt
-            input: A dictionary of variables to render the template with
-            
+            prompt_template: A Jinja2 template string
+            **kwargs: Arguments to format the template with
+        
         Returns:
-            The model's response as a string
+            The AI's response string
         """
-        # Render the prompt template with the input
-        template = self.jinja_env.from_string(prompt_template)
-        rendered_prompt = template.render(**input)
+        # Format the prompt using Jinja2
+        template = Template(prompt_template)
+        formatted_prompt = template.render(**kwargs)
         
-        # Add the user message to history
-        self.history.append(HumanMessage(content=rendered_prompt))
+        # Add the human message to history
+        human_message = HumanMessage(content=formatted_prompt)
+        self.history.append(human_message)
         
-        # Call the model with the conversation history
-        response = self.client.invoke(self.history)
-        
-        # Add the model's response to history
-        ai_message = AIMessage(content=response.content)
-        self.history.append(ai_message)
-        
-        return response.content
+        try:
+            # Get response from LLM
+            response = self.llm.invoke(self.history)
+            
+            # Add AI response to history
+            ai_message = AIMessage(content=response.content)
+            self.history.append(ai_message)
+            
+            # Log the conversation
+            log_chat(self.history)
+            
+            return response.content
+            
+        except Exception as e:
+            # Remove the human message from history if we failed
+            self.history.pop()
+            raise e
     
     def clone(self) -> 'SimpleChat':
         """
-        Create a copy of this chat session with the same history.
-        This allows forking the conversation to explore different paths.
+        Create a copy of this chat instance with the same history.
         
         Returns:
-            A new SimpleChat instance with the same history
+            A new SimpleChat instance with copied history
         """
-        new_chat = SimpleChat(self.system_prompt)
-        new_chat.history = copy.deepcopy(self.history)
+        new_chat = SimpleChat(self.history[0].content)  # Create new instance with same system prompt
+        new_chat.history = deepcopy(self.history)  # Deep copy the history
         return new_chat 

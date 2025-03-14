@@ -38,6 +38,8 @@ We maintain a global variable `log_branches` that is a list of `ChatLogBranch` o
 
 Any time we call `log_chat`, we have to insert these messages into log_branches to maintain a tree structure. We compare the tree structure with the new chat chain and find the first message that is different. If necessary we create a branch in the ChatLogBranch to allow describing the multiple branches of the conversation.
 
+Call `save_logs` to update the log file after every invocation of `log_chat`.
+
 ### Tech notes
 
 - @dataclass_json classes generate a to_dict method, which is used by the save_logs function to save the logs to a JSON file.
