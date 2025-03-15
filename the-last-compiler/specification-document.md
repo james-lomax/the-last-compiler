@@ -30,10 +30,15 @@ Parse the markdown file into a Section using [[markdown-parser]]
 
 List imports for the whole file by passing each text block into list_import_for_block which:
 
-- Ask claude-haiku to list the imports
-    - the system prompt will tell Claude it must consider `[[path/to/file]]` as a dependency and save list the dependencies line by line
-    - In the system prompt, instruct the model to return only the dependencies, one per line, without any other text. Instruct the model to return "no dependencies" if it can't find any dependencies, and find this text in the response to skip the rest of the function and return an empty list.
+- Checks if there are any strings matching `\[\[([a-zA-Z\d \-\/]+)\]\]` and extracts the dependency name
 
+This parses out dependencies from the text block which are described in Obsidian form, i.e.:
+
+```
+Reference to [[file]] or [[path/to/file]]
+```
+
+The returned list of import file names must have an extension. If there is no extension, add `.md` to the end of the filename.
 ### def describe_interface(spec_path: str) -> SectionBlock
 
 Finds all the blocks that are likely to describe the interface of the module. Will have titles like "Interface" or "Usage".

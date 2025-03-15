@@ -41,7 +41,7 @@ def list_imports(spec_path: str) -> List[str]:
 
 def _list_imports_for_block(text: str) -> List[str]:
     """
-    Extract imports from a text block using Claude.
+    Extract imports from a text block using regex.
     
     Args:
         text: The text content to analyze
@@ -50,44 +50,8 @@ def _list_imports_for_block(text: str) -> List[str]:
         A list of import paths
     """
     # Use regex to find all [[path/to/file]] patterns
-    import_pattern = r'\[\[(.*?)\]\]'
+    import_pattern = r'\[\[([a-zA-Z\d \-\/]+)\]\]'
     matches = re.findall(import_pattern, text)
-    
-    # If no matches found using regex, try using Claude
-    if not matches:
-        # Create a chat instance with Claude Haiku
-        system_prompt = """
-        You are a dependency analyzer. Your task is to identify dependencies in markdown text.
-        Dependencies are specified using the syntax [[path/to/file]].
-        You must list these dependencies one per line, without any other text.
-        If there are no dependencies, respond with "no dependencies".
-        """
-        
-        chat = SimpleChat(system_prompt, model="claude-haiku")
-        
-        # Ask Claude to identify dependencies
-        response = chat.call(
-            "Identify all dependencies in this text that use the [[path/to/file]] syntax. List them one per line:\n\n{{ text }}",
-            text=text
-        )
-        
-        # Process the response
-        if "no dependencies" in response.lower():
-            return []
-        
-        # Split the response by lines and clean up
-        potential_imports = [line.strip() for line in response.split('\n') if line.strip()]
-        
-        # Filter to only include valid import patterns
-        matches = []
-        for imp in potential_imports:
-            # Extract the path from [[path]] if present
-            import_match = re.search(r'\[\[(.*?)\]\]', imp)
-            if import_match:
-                matches.append(import_match.group(1))
-            # If it's just a plain path without brackets, include it if it looks valid
-            elif '/' in imp or '.' in imp:
-                matches.append(imp)
     
     # Ensure all imports end with .md if they don't have an extension
     normalized_imports = []
