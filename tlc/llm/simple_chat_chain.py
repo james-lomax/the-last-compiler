@@ -38,7 +38,7 @@ class SimpleChat:
         self.model = ChatAnthropic(
             model=model_name,
             api_key=api_key,
-            max_tokens=64_000,
+            max_tokens=8192,
         )
     
     def _get_api_key(self) -> str:

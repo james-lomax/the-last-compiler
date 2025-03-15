@@ -9,7 +9,7 @@ import sys
 import argparse
 from typing import List, Optional, Set
 
-from tlc.markdown_parser import parse_markdown, render_markdown, TextBlock, Section, Block
+from tlc.markdown_parser import CodeBlock, parse_markdown, render_markdown, TextBlock, Section, Block
 
 
 def list_import_for_block(block: TextBlock) -> List[str]:
@@ -59,14 +59,14 @@ def get_public_interface_blocks(spec_path: str) -> Section:
     
     # Include any top-level TextBlocks
     for child in root_section.children:
-        if isinstance(child, TextBlock):
+        if isinstance(child, TextBlock) or isinstance(child, CodeBlock):
             interface_section.children.append(child)
     
     # Check for second-level blocks that describe interfaces
     for child in root_section.children:
         if isinstance(child, Section):
-            title_lower = child.title.lower()
-            if any(keyword in title_lower for keyword in ["interface", "usage", "api", "public", "exported"]):
+            title_lower = child.title.lower().strip()
+            if title_lower in ["interface", "usage", "api", "public", "exported"]:
                 interface_section.children.append(child)
     
     return interface_section
@@ -125,11 +125,8 @@ def describe_dependency_interfaces(spec_path: str) -> Section:
             interface_section = get_public_interface_blocks(dep_path)
             dependencies_section.children.append(interface_section)
             
-            # Find new dependencies in this dependency
-            dep_blocks = parse_markdown(dep_path)
-            if dep_blocks and isinstance(dep_blocks[0], Section):
-                dep_root = dep_blocks[0]
-                _collect_dependencies_from_section(dep_root, dependencies_to_visit, visited_dependencies)
+            # Find new dependencies only in the interface section
+            _collect_dependencies_from_section(interface_section, dependencies_to_visit, visited_dependencies)
                 
         except Exception as e:
             raise Exception(f"Error processing dependency {dep}: {str(e)}") from e
@@ -198,12 +195,8 @@ def preprocess_spec_context(path: str) -> str:
         # Get dependency interfaces
         dependencies_section = describe_dependency_interfaces(path)
         
-        # Create a new root section with dependencies first, then original content
-        root_section = blocks[0]
-        new_root = Section(title=root_section.title, children=[dependencies_section] + root_section.children)
-        
         # Render the modified document
-        return render_markdown([new_root])
+        return render_markdown([dependencies_section] + blocks)
         
     except Exception as e:
         print(f"Error preprocessing spec context: {str(e)}", file=sys.stderr)

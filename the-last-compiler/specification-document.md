@@ -37,16 +37,17 @@ The returned list of import file names must have an extension. If there is no ex
 
 Describes all the interfaces that we need to be aware of to implement this module - visits all dependencies of the spec file and collects the exported API details from each spec file we depend on.
 
-- We create a list of `dependencies_to_visit` that are required to understand this interface by calling `list_import_for_block` on all `TextBlock`s in the spec file
+- We create a list of `dependencies_to_visit` that are required to understand this interface by calling `list_import_for_block` on all `TextBlock` and `CodeBlock` in the spec file
 - Then we loop while we still have `dependencies_to_visit`
 	- We call `get_public_interface_blocks` on each unvisited dependency
-	- We call list_import_for_block on all the TextBlocks in the dependency we are visiting
+		- NB when visiting a child dependency we must only collect the dependencies of that childs interface blocks, otherwise we will include context that is not essential.
+	- We call list_import_for_block on all the TextBlocks in the public interface of the dependency we are visiting
 	- We add any new unvisited dependencies to the to_visit list
 - When this loop is finished we have a complete set of interface descriptions that is required for this file
 
 #### def get_public_interface_blocks(spec_path: str) -> Section
 
-This function reads the spec file, and for each second level block (`##`), checks if the title is "Interface", "Usage", "Api",  "public" or "exported" (ignore case) and therefore this block is describing the interface or usage instructions for the module by other python modules. Include any second level block which is describing the interface of the module in the output Section. Also include any top level TextBlock in the output.
+This function reads the spec file, and for each second level block (`##`), checks if the title is exactly "Interface", "Usage", "Api",  "public" or "exported" (ignore case - use `title.lower().strip() in ["interface", "usage", "api", "public", "exported"]`) and therefore this block is describing the interface or usage instructions for the module by other python modules. Include any second level block which is describing the interface of the module in the output Section. Also include any top level TextBlock in the output.
 
 #### Import Resolution and Error Handling
 
@@ -62,7 +63,7 @@ A convenience function that:
 1. Loads a specification document using load_specification_document
 2. Calls describe_dependency_interfaces with the correct spec_path to ensure proper relative import resolution
 3. Handles and re-raises any exceptions with appropriate error messages
-4. Returns a modified markdown document with the described interfaces prepended to the spec
+4. Returns a modified markdown document with the described interfaces prepended to the document in a new top level block `# Dependencies`
 
 ### get_code_target(path: str): str
 
