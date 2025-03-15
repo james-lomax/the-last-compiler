@@ -19,4 +19,6 @@ slop/logs/*
 
 .obsidian/
 
-tlc/logs
+tlc/logs/
+
+logs/

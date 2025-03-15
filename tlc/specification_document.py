@@ -172,26 +172,8 @@ def _is_interface_section(section: Section) -> bool:
     for keyword in interface_keywords:
         if keyword in title_lower:
             return True
-    
-    # If not obvious from the title, use Claude to determine
-    system_prompt = """
-    You are an expert at identifying interface descriptions in software documentation.
-    Your task is to determine if a section describes the interface or usage instructions for a module.
-    Answer with only 'yes' or 'no'.
-    """
-    
-    chat = SimpleChat(system_prompt, model="claude-haiku")
-    
-    # Convert the section to markdown for Claude to analyze
-    from tlc.markdown_parser import render_markdown
-    section_markdown = render_markdown([section])
-    
-    response = chat.call(
-        "Does this section describe the interface or usage instructions for a module?\n\n{{ section }}",
-        section=section_markdown
-    )
-    
-    return response.lower().strip() == "yes"
+        
+    return False
 
 def _resolve_import_path(import_path: str, base_dir: str) -> str:
     """

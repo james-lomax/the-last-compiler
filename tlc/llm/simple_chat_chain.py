@@ -12,7 +12,7 @@ from tlc.llm.langchain_logging import log_chat, save_logs
 set_llm_cache(SQLiteCache(database_path=".langchain.db"))
 
 class SimpleChat:
-    def __init__(self, system_prompt: str, model: str = "claude-sonnet"):
+    def __init__(self, system_prompt: str, debug_name: str | None = None, model: str = "claude-sonnet"):
         """
         Initialize a SimpleChat instance.
         
@@ -22,7 +22,7 @@ class SimpleChat:
         """
         self.system_prompt = system_prompt
         self.history = [SystemMessage(content=system_prompt)]
-        
+        self.debug_name = debug_name
         # Determine the model name based on the input
         if model == "claude-sonnet":
             model_name = "claude-3-7-sonnet-latest"
@@ -38,6 +38,7 @@ class SimpleChat:
         self.model = ChatAnthropic(
             model=model_name,
             api_key=api_key,
+            max_tokens=64_000,
         )
     
     def _get_api_key(self) -> str:
@@ -99,10 +100,14 @@ class SimpleChat:
         
         # Log the chat history
         log_chat(self.history)
+
+        if self.debug_name:
+            with open(f"logs/{self.debug_name}.{len(self.history)}.md", "a") as f:
+                f.writelines([_message_to_md(msg) for msg in self.history])
         
         return full_response
     
-    def clone(self) -> 'SimpleChat':
+    def clone(self, debug_name: str | None = None) -> 'SimpleChat':
         """
         Create a copy of this SimpleChat instance with the same history.
         
@@ -110,10 +115,24 @@ class SimpleChat:
             A new SimpleChat instance with the same history
         """
         # Create a new instance with the same system prompt and model
-        new_chat = SimpleChat(self.system_prompt, 
-                             "claude-sonnet" if "sonnet" in self.model.model else "claude-haiku")
+        new_chat = SimpleChat(
+            self.system_prompt, 
+            debug_name,
+            self.model
+        )
         
         # Copy the history
         new_chat.history = self.history.copy()
         
         return new_chat 
+    
+def _message_to_md(message: BaseMessage) -> str:
+    """Convert a BaseMessage to a string representation."""
+    if isinstance(message, AIMessage):
+        return f"\n# AI\n\n{message.content}"
+    elif isinstance(message, HumanMessage):
+        return f"\n# Human\n\n{message.content}"
+    elif isinstance(message, SystemMessage):
+        return f"\n# System\n\n{message.content}"
+    else:
+        return f"\n# {message.type}\n\n{message.content}"

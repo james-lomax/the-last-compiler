@@ -130,7 +130,7 @@ def compile_spec(spec_path):
     Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
     """
     
-    chat = SimpleChat(system_prompt, model="claude-sonnet")
+    chat = SimpleChat(system_prompt, debug_name=f"{spec_path}.compile", model="claude-sonnet")
     
     # Generate the code
     logging.info(f"Generating code for {code_target}")

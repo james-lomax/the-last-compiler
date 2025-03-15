@@ -101,7 +101,7 @@ def sanity_check_spec(spec_path, q_and_a_path=None):
     Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
     """
     
-    chat = SimpleChat(system_prompt, model="claude-sonnet")
+    chat = SimpleChat(system_prompt, debug_name=f"{spec_path}.sanity-check", model="claude-sonnet")
     
     # First prompt: Initial sanity check
     logging.info("Performing initial sanity check")
