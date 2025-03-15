@@ -4,16 +4,31 @@ This program is the first step in the-last-compiler. It takes a specification fi
 
 The program works by reading an input markdown file, and performing several prompts using a langchain ChatModel (specifically Claude Sonnet), determining what the questions that need answering are, providing assumptions where possible, deciding whether the spec is ready to be compiled into code, and if not, explaining why.
 
-Usage:
+## Import interfaces
+
+- See [[simple-chat-chain]] for information how to use the SimpleChat interface to interact with the language model.
+
+## Usage
+
+Using it as a CLI tool:
 
 ```
 sanity-check-spec module-name.md
 ```
 
-## Import interfaces
+Exposes this python API:
 
-- See [[simple-chat-chain]] for information how to use the SimpleChat interface to interact with the language model.
+```python
+@dataclass
+class CheckedSpecification:
+	module_name: str
+	code_target_path: str
+	no_context_spec: str
+	q_and_a: str
 
+def sanity_check_spec(spec_path: str) -> CheckedSpecification | None
+	""" Returns None if the spec isn't ready to implement """
+```
 ## Module name
 
 The module name is of the form `module-name`. This refers to a module defined in `module-name.md`, and implemented in `module_name.py`.
@@ -58,11 +73,15 @@ The following section describes the precise prompts we should use with the Chatm
 First ask the AI to sanity check the spec.
 
 ```jinja2
-Read the spec
+Read the spec:
 
-{spec}
+======= BEGIN {{module_name}} spec =======
+{{spec}}
+======== END {{module_name}} spec ========
 
 Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?
+
+Do not try to write the code yet. Just describe any weaknesses you see in the specification.
 ```
 
 We will log the chain of thought here in the debug log, but not print to the console.
@@ -78,6 +97,8 @@ Here is a Q&A from our last review of this document:
 Do we have enough information to implement this specification in code? Does this implementation make sense? Will it work? Why not?
 
 We are allowed to make reasonable assumptions, but we must explain them.
+
+Do not try to write the code yet. Just explain why this will work or not.
 ```
 
 let explanation = response

@@ -106,27 +106,33 @@ def sanity_check_spec(spec_path, q_and_a_path=None):
     # First prompt: Initial sanity check
     logging.info("Performing initial sanity check")
     prompt_template = """
-    Read the spec
+        Read the spec:
 
-    {{ spec }}
+        ======= BEGIN {{module_name}} spec =======
+        {{spec}}
+        ======== END {{module_name}} spec ========
 
-    Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?
+        Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?
+
+        Do not try to write the code yet. Just describe any weaknesses you see in the specification.
     """
     
-    response = chat.call(prompt_template, spec=no_context_spec)
+    response = chat.call(prompt_template, spec=no_context_spec, module_name=module_name)
     logging.debug(f"Initial sanity check response:\n{response}")
     
     # Second prompt: Evaluate if we have enough information
     logging.info("Evaluating if we have enough information")
     prompt_template = """
-    {% if q_and_a %}
-    Here is a Q&A from our last review of this document:
+        {% if q_and_a %}
+        Here is a Q&A from our last review of this document:
 
-    {{ q_and_a }}{% endif %}
+        {q_and_a}{% endif %}
 
-    Do we have enough information to implement this specification in code? Does this implementation make sense? Will it work? Why not?
+        Do we have enough information to implement this specification in code? Does this implementation make sense? Will it work? Why not?
 
-    We are allowed to make reasonable assumptions, but we must explain them.
+        We are allowed to make reasonable assumptions, but we must explain them.
+
+        Do not try to write the code yet. Just explain why this will work or not.
     """
     
     explanation = chat.call(prompt_template, q_and_a=q_and_a_content)

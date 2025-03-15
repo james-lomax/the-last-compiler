@@ -7,7 +7,6 @@ Usage:
 ```
 compile-spec <module-name.md>
 ```
-
 ## Implementation
 
 The compile step is always preceded by the sanity check step, using [[sanity-check-spec]]. This preprocesses the specification, produces a Q&A, and fails if the spec is not ready to implement.
@@ -29,6 +28,9 @@ The specification files should generally define:
 Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
 ```
 
+### Inputs
+
+- `checked_spec` is the `CheckedSpec` returned by `sanity_check_spec` in [[sanity-check-spec]]
 ### One shot code generation prompt step
 
 When the spec is ready, `compile-spec` performs code generation one-shot - a single code generation prompt is used to produce the output file, which is saved to the code target file in the `tlc/` directory.
@@ -36,15 +38,15 @@ When the spec is ready, `compile-spec` performs code generation one-shot - a sin
 ```jinja2
 Consider the following specification:
 
-====== BEGIN {module_name} specification ======
-{no_context_spec}
-====== END {module_name} specification ======
+====== BEGIN {{checked_spec.module_name}} specification ======
+{{checked_spec.no_context_spec}}
+====== END {{checked_spec.module_name}} specification ======
 
 We have reviewed this specification, and discussed some clarifications in this Q&A:
 
-{q_and_a}
+{{checked_spec.q_and_a}}
 
-The specification is ready to implement in {module_code_target}. Write the code for this module. Do not write anything else, just the code.
+The specification is ready to implement in {{checked_spec.code_target_path}}. Write the code for this module. Do not write anything else, just the code.
 ```
 
 ### Code review step
@@ -56,15 +58,15 @@ First we think about the code
 ```jinja2
 Consider the following specification:
 
-====== BEGIN {module_name} specification ======
-{no_context_spec}
-====== END {module_name} specification ======
+====== BEGIN {{checked_spec.module_name}} specification ======
+{{checked_spec.no_context_spec}}
+====== END {{checked_spec.module_name}} specification ======
 
 Here is our implementation:
 
-====== BEGIN {module_code_target} implementation ======
-{code}
-====== END {module_code_target} implementation ======
+====== BEGIN {{checked_spec.code_target_path}} implementation ======
+{{code}}
+====== END {{checked_spec.code_target_path}} implementation ======
 
 Review this implementation. Is it complete? Is it valid code? Does it meet our specifications expectations?
 ```
