@@ -4,9 +4,12 @@ compile-spec turns markdown module specification files into code in a low-contex
 
 Usage:
 
+```python
+compile_spec("path/to/module-name.md")
 ```
-compile-spec <module-name.md>
-```
+
+This reads the file at `path/to/module-name.md` and writes a python module to `tlc/path/to/module_name.py`. compile_spec handles determining the output target file, reading and writing files and creating directories.
+
 ## Implementation
 
 The compile step is always preceded by the sanity check step, using [[sanity-check-spec]]. This preprocesses the specification, produces a Q&A, and fails if the spec is not ready to implement.
@@ -48,7 +51,7 @@ We have reviewed this specification, and discussed some clarifications in this Q
 
 {{checked_spec.q_and_a}}
 
-The specification is ready to implement in {{checked_spec.code_target_path}}. Write the code for this module. Do not write anything else, just the code.
+The specification is ready to implement in {{checked_spec.code_target_path}}. Write the code for this module. Do not write anything else, just the code. Do not enclose the code in Markdown back-ticks.
 ```
 
 ### Code review step
