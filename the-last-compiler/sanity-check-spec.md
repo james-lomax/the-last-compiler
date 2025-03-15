@@ -18,13 +18,19 @@ sanity-check-spec module-name.md
 
 The module name is of the form `module-name`. This refers to a module defined in `module-name.md`, and implemented in `module_name.py`.
 
-## Language Model
+## Implementation
+
+### Language Model
 
 The program uses the `claude-3-7-sonnet-latest` model via the LangChain ChatAnthropic interface and @simple-chat-chain.md. The API key should be stored in a file named `.anthropic_key` in the root directory.
 
 Always implement these prompts verbatim, using jinja2 templates.
 
-## System prompt
+### Building spec with context
+
+Use describe_interface() from @specification-document.md to get the full interface context that will be required to understand this modules implementation. and prepend it to the spec document in a single SectionBlock with title "Interface context".
+
+### System prompt
 
 This system prompt is used in all the following chat prompt steps.
 
@@ -32,6 +38,7 @@ This system prompt is used in all the following chat prompt steps.
 You are a specification compiler. You take markdown documents describing the implementation of a single python module file and turn them into code.
 
 The specification files should generally define:
+- Dependencies on other modules (named like @path/to/module.md)
 - the inputs and outputs of the program
 - the command arguments of the program
 - how the program is implemented
@@ -39,7 +46,7 @@ The specification files should generally define:
 Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
 ```
 
-## Chat chain - Sense check and Q&A prep
+### Chat chain - Sense check and Q&A prep
 
 The following section describes the precise prompts we should use with the Chatmodel.
 
@@ -95,7 +102,7 @@ If there is an **Answer** from the last review, you must keep it the same.
 
 Store response in `slop/${module_name}.questions.md` - overwrite if it exists.
 
-## Logging
+### Logging
 
 Use the standard logging library. Logging in the CLI is INFO by default, but we store in `slop/logs/${module_name}.log`. The format of the logs in the console will be to just show the message and nothing else. The format of the logs in the file will include the timestamp, logger name, log level and message.
 
