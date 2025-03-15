@@ -68,6 +68,15 @@ ChatAnthropic(
 )
 ```
 
+We must setup a cache using langchains SQLite cache, calling the folowing at the top of the file:
+
+```python
+from langchain.globals import set_llm_cache
+from langchain.cache import SQLiteCache
+
+set_llm_cache(SQLiteCache(database_path=".langchain.db"))
+```
+
 ## Logging
 
 - Use @langchain-logging.md for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.
