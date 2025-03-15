@@ -57,7 +57,7 @@ Read the spec
 
 {spec}
 
-Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions?
+Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?
 ```
 
 We will log the chain of thought here in the debug log, but not print to the console.

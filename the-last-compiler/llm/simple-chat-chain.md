@@ -11,7 +11,7 @@ Example:
 ```python
 from tlc.simple_chat_chain import SimpleChat
 
-chat = SimpleChat(system_prompt)
+chat = SimpleChat(system_prompt, model="claude-sonnet")
 
 question_template = "Hello, my name is {{ name }}. {{ question }}"
 
@@ -34,7 +34,7 @@ Define a really simple chat interface that allows for chat style interaction cha
 
 ```python
 class SimpleChat:
-    def __init__(self, system_prompt: str):
+    def __init__(self, system_prompt: str, model: str = "claude-sonnet"):
         pass
 
     def call(self, prompt_template: str, **kwargs) -> str:
@@ -50,6 +50,11 @@ class SimpleChat:
     def clone(self) -> 'Chat':
         pass
 ```
+
+Models:
+
+- "claude-sonnet" - Use `claude-3-7-sonnet-latest`
+- "claude-haiku" - Use `claude-3-5-haiku-latest`
 
 ## Implementation
 
