@@ -101,6 +101,8 @@ We have reviewed this specification, and discussed some clarifications in this Q
 {{checked_spec.q_and_a}}
 
 The specification is ready to implement in {{checked_spec.code_target_path}}. Write the code for this module. Do not write anything else, just the code.
+
+Do not include the markdown back-ticks, we're going to output this straight to {{checked_spec.code_target_path}}.
 """
         
         logger.info("Generating code...")

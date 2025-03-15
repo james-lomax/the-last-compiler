@@ -1,6 +1,6 @@
 # The Last Compiler (TLC)
 
-The future is here. Claude Sonnet 3.7 is more-or-less capable of turning any sufficiently well defined specification into a working python module in one go.
+The future is here. Claude Sonnet 3.5 is more-or-less capable of turning any sufficiently well defined specification into a working python module in one go.
 
 English is the last programming language humans will ever need.
 
