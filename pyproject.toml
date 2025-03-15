@@ -18,4 +18,4 @@ py-modules = [
 ]
 
 [project.scripts]
-sanity-check-spec = "tlc.sanity_check_spec:main"
+tlc = "tlc.tlc:main"

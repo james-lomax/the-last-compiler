@@ -53,7 +53,7 @@ class SimpleChat:
 
 Models:
 
-- "claude-sonnet" - Use `claude-3-7-sonnet-latest`
+- "claude-sonnet" - Use `claude-3-5-sonnet-latest`
 - "claude-haiku" - Use `claude-3-5-haiku-latest`
 
 ## Implementation
@@ -68,7 +68,7 @@ Instantiate ChatAnthropic with:
 
 ```python
 model = ChatAnthropic(
-    model="claude-3-7-sonnet-latest",
+    model="claude-3-5-sonnet-latest",
     api_key=api_key,
     max_tokens=64_000,
 )

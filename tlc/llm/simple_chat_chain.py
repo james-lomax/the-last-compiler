@@ -25,7 +25,7 @@ class SimpleChat:
         self.debug_name = debug_name
         # Determine the model name based on the input
         if model == "claude-sonnet":
-            model_name = "claude-3-7-sonnet-latest"
+            model_name = "claude-3-5-sonnet-latest"
         elif model == "claude-haiku":
             model_name = "claude-3-5-haiku-latest"
         else:
