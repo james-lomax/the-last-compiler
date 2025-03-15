@@ -1,268 +1,244 @@
+#!/usr/bin/env python3
+"""
+This module provides utilities for pre-processing specification documents to be used by the compiler.
+"""
+
 import os
 import re
-from typing import List, Optional
-from pathlib import Path
+import sys
+import argparse
+from typing import List, Optional, Set
 
-from tlc.markdown_parser import parse_markdown, Block, TextBlock, CodeBlock, Section
-from tlc.llm.simple_chat_chain import SimpleChat
+from tlc.markdown_parser import parse_markdown, render_markdown, TextBlock, Section, Block
 
-def list_imports(spec_path: str) -> List[str]:
+
+def list_import_for_block(block: TextBlock) -> List[str]:
     """
-    List all imports referenced in the specification document.
+    Checks if there are any strings in the block match `\[\[([a-zA-Z\d \-\/]+)\]\]` and extracts the dependency name.
     
     Args:
-        spec_path: Path to the specification document
+        block: The TextBlock to check for dependencies
         
     Returns:
-        A list of import paths
+        A list of dependency file names with extensions
     """
-    blocks = parse_markdown(spec_path)
-    imports = []
+    if not isinstance(block, TextBlock):
+        return []
     
-    # Process each block to find imports
-    for block in blocks:
-        if isinstance(block, Section):
-            # Recursively process sections
-            for child in block.children:
-                if isinstance(child, TextBlock):
-                    imports.extend(_list_imports_for_block(child.text))
-                elif isinstance(child, Section):
-                    # Process nested sections
-                    section_imports = _process_section_for_imports(child)
-                    imports.extend(section_imports)
+    # Find all matches of the pattern [[file]] or [[path/to/file]]
+    pattern = r'\[\[([a-zA-Z\d \-\/]+)\]\]'
+    matches = re.findall(pattern, block.text)
     
-    # Remove duplicates while preserving order
-    unique_imports = []
-    for imp in imports:
-        if imp not in unique_imports:
-            unique_imports.append(imp)
-    
-    return unique_imports
-
-def _list_imports_for_block(text: str) -> List[str]:
-    """
-    Extract imports from a text block using regex.
-    
-    Args:
-        text: The text content to analyze
-        
-    Returns:
-        A list of import paths
-    """
-    # Use regex to find all [[path/to/file]] patterns
-    import_pattern = r'\[\[([a-zA-Z\d \-\/]+)\]\]'
-    matches = re.findall(import_pattern, text)
-    
-    # Ensure all imports end with .md if they don't have an extension
-    normalized_imports = []
-    for imp in matches:
-        if not os.path.splitext(imp)[1]:
-            normalized_imports.append(f"{imp}.md")
+    # Add .md extension if no extension is present
+    result = []
+    for match in matches:
+        if '.' not in match.split('/')[-1]:
+            result.append(f"{match}.md")
         else:
-            normalized_imports.append(imp)
+            result.append(match)
     
-    return normalized_imports
+    return result
 
-def _process_section_for_imports(section: Section) -> List[str]:
+
+def get_public_interface_blocks(spec_path: str) -> Section:
     """
-    Process a section and its children for imports.
+    Reads the spec file and extracts blocks describing the public interface.
     
     Args:
-        section: The section to process
+        spec_path: Path to the specification file
         
     Returns:
-        A list of import paths
-    """
-    imports = []
-    
-    for child in section.children:
-        if isinstance(child, TextBlock):
-            imports.extend(_list_imports_for_block(child.text))
-        elif isinstance(child, Section):
-            # Recursively process nested sections
-            section_imports = _process_section_for_imports(child)
-            imports.extend(section_imports)
-    
-    return imports
-
-def describe_interface(spec_path: str) -> Section:
-    """
-    Find blocks that describe the interface of the module.
-    
-    Args:
-        spec_path: Path to the specification document
-        
-    Returns:
-        A Section block containing the interface description
+        A Section containing the public interface blocks
     """
     blocks = parse_markdown(spec_path)
     if not blocks or not isinstance(blocks[0], Section):
-        raise ValueError(f"Invalid specification document: {spec_path}")
+        raise ValueError(f"Invalid specification file format: {spec_path}")
     
     root_section = blocks[0]
+    interface_section = Section(title=f"Interface from {os.path.basename(spec_path)}", children=[])
     
-    # Create a new section with the same title
-    interface_section = Section(title=root_section.title, children=[])
-    
-    # Add top-level text blocks
+    # Include any top-level TextBlocks
     for child in root_section.children:
         if isinstance(child, TextBlock):
             interface_section.children.append(child)
     
-    # Find interface-related sections
+    # Check for second-level blocks that describe interfaces
     for child in root_section.children:
         if isinstance(child, Section):
-            if _is_interface_section(child):
+            title_lower = child.title.lower()
+            if any(keyword in title_lower for keyword in ["interface", "usage", "api", "public", "exported"]):
                 interface_section.children.append(child)
-    
-    # Process dependencies
-    processed_deps = set()
-    deps_to_process = list_imports(spec_path)
-    
-    # Process dependencies until we have no more to process
-    while deps_to_process:
-        dep = deps_to_process.pop(0)
-        
-        if dep in processed_deps:
-            continue
-        
-        processed_deps.add(dep)
-        
-        # Resolve the dependency path
-        dep_path = _resolve_import_path(dep, os.path.dirname(spec_path))
-        
-        try:
-            # Get the interface of the dependency
-            dep_interface = describe_interface(dep_path)
-            
-            # Add the dependency interface to our interface section
-            interface_section.children.insert(0, dep_interface)
-            
-            # Add the dependency's dependencies to our list
-            new_deps = list_imports(dep_path)
-            for new_dep in new_deps:
-                if new_dep not in processed_deps:
-                    deps_to_process.append(new_dep)
-        except FileNotFoundError as e:
-            print(f"Error: Could not find dependency {dep}: {e}")
-            raise
-        except Exception as e:
-            print(f"Error loading dependency {dep}: {e}")
-            raise
     
     return interface_section
 
-def _is_interface_section(section: Section) -> bool:
+
+def describe_dependency_interfaces(spec_path: str) -> Section:
     """
-    Determine if a section is likely describing the interface.
+    Describes all the interfaces needed to implement this module.
     
     Args:
-        section: The section to check
+        spec_path: Path to the specification file
         
     Returns:
-        True if the section is likely an interface section, False otherwise
+        A Section containing all dependency interfaces
     """
-    # Check if the section title suggests it's an interface section
-    interface_keywords = ["interface", "usage", "api", "public", "exported"]
+    # Create the root section for all dependencies
+    dependencies_section = Section(title="Dependencies", children=[])
     
-    # Convert to lowercase for case-insensitive matching
-    title_lower = section.title.lower()
+    # Get the base directory of the spec file for relative imports
+    base_dir = os.path.dirname(os.path.abspath(spec_path))
     
-    # Check if any of the keywords are in the title
-    for keyword in interface_keywords:
-        if keyword in title_lower:
-            return True
+    # Parse the main spec file
+    blocks = parse_markdown(spec_path)
+    if not blocks or not isinstance(blocks[0], Section):
+        raise ValueError(f"Invalid specification file format: {spec_path}")
+    
+    root_section = blocks[0]
+    
+    # Initialize the set of dependencies to visit
+    dependencies_to_visit = set()
+    visited_dependencies = set()
+    
+    # Collect initial dependencies from the main spec file
+    for child in root_section.children:
+        if isinstance(child, TextBlock):
+            for dep in list_import_for_block(child):
+                dependencies_to_visit.add(dep)
+        elif isinstance(child, Section):
+            for grandchild in child.children:
+                if isinstance(grandchild, TextBlock):
+                    for dep in list_import_for_block(grandchild):
+                        dependencies_to_visit.add(dep)
+    
+    # Process dependencies until we've visited all of them
+    while dependencies_to_visit:
+        dep = dependencies_to_visit.pop()
+        visited_dependencies.add(dep)
         
-    return False
+        # Resolve the dependency path
+        dep_path = _resolve_dependency_path(dep, base_dir)
+        if not dep_path:
+            raise FileNotFoundError(f"Dependency not found: {dep}")
+        
+        try:
+            # Get the interface blocks from this dependency
+            interface_section = get_public_interface_blocks(dep_path)
+            dependencies_section.children.append(interface_section)
+            
+            # Find new dependencies in this dependency
+            dep_blocks = parse_markdown(dep_path)
+            if dep_blocks and isinstance(dep_blocks[0], Section):
+                dep_root = dep_blocks[0]
+                _collect_dependencies_from_section(dep_root, dependencies_to_visit, visited_dependencies)
+                
+        except Exception as e:
+            raise Exception(f"Error processing dependency {dep}: {str(e)}") from e
+    
+    return dependencies_section
 
-def _resolve_import_path(import_path: str, base_dir: str) -> str:
+
+def _resolve_dependency_path(dep: str, base_dir: str) -> Optional[str]:
     """
-    Resolve an import path relative to the base directory.
+    Resolves a dependency path relative to the base directory.
     
     Args:
-        import_path: The import path to resolve
+        dep: The dependency path
         base_dir: The base directory to resolve from
         
     Returns:
-        The resolved absolute path
+        The resolved path or None if not found
     """
-    # First try direct resolution
-    direct_path = os.path.join(base_dir, import_path)
+    # Try direct path resolution
+    direct_path = os.path.join(base_dir, dep)
     if os.path.exists(direct_path):
         return direct_path
     
-    # If that fails, try to find the file in subdirectories
-    for root, dirs, files in os.walk(base_dir):
-        for file in files:
-            if file == os.path.basename(import_path):
-                return os.path.join(root, file)
+    # Try searching in subdirectories
+    for root, _, files in os.walk(base_dir):
+        if os.path.basename(dep) in files:
+            return os.path.join(root, os.path.basename(dep))
     
-    # If still not found, raise an error
-    raise FileNotFoundError(f"Could not find import {import_path} relative to {base_dir}")
+    return None
+
+
+def _collect_dependencies_from_section(section: Section, to_visit: Set[str], visited: Set[str]) -> None:
+    """
+    Collects dependencies from a section and adds them to the to_visit set if not already visited.
+    
+    Args:
+        section: The section to collect dependencies from
+        to_visit: Set of dependencies to visit
+        visited: Set of already visited dependencies
+    """
+    for child in section.children:
+        if isinstance(child, TextBlock):
+            for dep in list_import_for_block(child):
+                if dep not in visited:
+                    to_visit.add(dep)
+        elif isinstance(child, Section):
+            _collect_dependencies_from_section(child, to_visit, visited)
+
 
 def preprocess_spec_context(path: str) -> str:
     """
-    Preprocess a specification document to include all required interfaces.
+    Preprocesses a specification document by adding dependency interfaces.
     
     Args:
-        path: Path to the specification document
+        path: Path to the specification file
         
     Returns:
-        A modified markdown document with interfaces prepended
+        A modified markdown document with dependency interfaces prepended
     """
     try:
-        # Get the interface description
-        interface_section = describe_interface(path)
+        # Parse the original spec file
+        blocks = parse_markdown(path)
+        if not blocks or not isinstance(blocks[0], Section):
+            raise ValueError(f"Invalid specification file format: {path}")
         
-        # Convert the interface to markdown
-        from tlc.markdown_parser import render_markdown
-        interface_markdown = render_markdown([interface_section])
+        # Get dependency interfaces
+        dependencies_section = describe_dependency_interfaces(path)
         
-        # Read the original spec
-        with open(path, "r") as f:
-            original_spec = f.read()
+        # Create a new root section with dependencies first, then original content
+        root_section = blocks[0]
+        new_root = Section(title=root_section.title, children=[dependencies_section] + root_section.children)
         
-        # Combine the interface and original spec
-        return interface_markdown + "\n\n" + original_spec
-    except FileNotFoundError as e:
-        print(f"Error: Could not find file: {e}")
-        raise
+        # Render the modified document
+        return render_markdown([new_root])
+        
     except Exception as e:
-        print(f"Error preprocessing spec: {e}")
+        print(f"Error preprocessing spec context: {str(e)}", file=sys.stderr)
         raise
+
 
 def get_code_target(path: str) -> Optional[str]:
     """
-    Get the name of the Python module this specification describes.
+    Returns the name of the python module this specification describes.
     
     Args:
-        path: Path to the specification document
+        path: Path to the specification file
         
     Returns:
-        The module name, or None if it's documentation only
+        The module name or None if it's documentation only
     """
     blocks = parse_markdown(path)
     if not blocks or not isinstance(blocks[0], Section):
-        raise ValueError(f"Invalid specification document: {path}")
+        raise ValueError(f"Invalid specification file format: {path}")
     
-    # Get the title of the root section
-    title = blocks[0].title
+    root_section = blocks[0]
+    module_name = root_section.title.strip()
     
-    # Check if it ends with .py
-    if title.endswith(".py"):
-        return title
-    # Check if it ends with .md (documentation only)
-    elif title.endswith(".md"):
+    if module_name.endswith('.py'):
+        return module_name
+    elif module_name.endswith('.md'):
         return None
     else:
-        raise ValueError(f"Invalid specification title: {title}. Must end with .py or .md")
+        raise ValueError(f"Invalid module name: {module_name}. Must end with .py or .md")
+
 
 def main():
-    """CLI entry point for the specification document processor."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Process specification documents")
-    parser.add_argument("command", choices=["preprocess"], help="Command to run")
+    """CLI entry point for the module."""
+    parser = argparse.ArgumentParser(description="Preprocess specification documents")
+    parser.add_argument("command", choices=["preprocess"], help="Command to execute")
     parser.add_argument("spec_path", help="Path to the specification document")
     
     args = parser.parse_args()
@@ -272,8 +248,9 @@ def main():
             result = preprocess_spec_context(args.spec_path)
             print(result)
         except Exception as e:
-            print(f"Error: {e}")
-            exit(1)
+            print(f"Error: {str(e)}", file=sys.stderr)
+            sys.exit(1)
+
 
 if __name__ == "__main__":
     main() 

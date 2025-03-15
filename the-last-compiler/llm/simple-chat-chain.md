@@ -70,6 +70,7 @@ Instantiate ChatAnthropic with:
 model = ChatAnthropic(
     model="claude-3-7-sonnet-latest",
     api_key=api_key,
+    max_tokens=64_000,
 )
 ```
 

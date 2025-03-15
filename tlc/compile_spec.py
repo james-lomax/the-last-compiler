@@ -86,7 +86,7 @@ Sometimes specifications may include pseudo-code, intended to make it clear abou
 """
         
         # Initialize the chat model
-        chat = SimpleChat(system_prompt, model="claude-sonnet")
+        chat = SimpleChat(system_prompt, debug_name=f"{spec_path}.compile", model="claude-sonnet")
         
         # One-shot code generation
         code_generation_template = """

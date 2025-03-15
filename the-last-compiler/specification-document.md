@@ -13,10 +13,6 @@ This module provides utilities for pre-processing specification documents to be 
 Depends on the block structure defined in [[markdown-parser]]
 
 ```python
-imports = list_imports("specification-document.md") # ["llm/simple-chat-chain.md", "markdown-parser.md"]
-
-describe_interface("specification-document.md") # Returns a SectionBlock with the same title as the spec, but only the sub-blocks that describe the interface of the module, and the interfaces of the modules required to understand this interface
-
 preprocess_spec_context("specification-document.md") # Returns a modified markdown document with the described interfaces prepended to the spec
 
 get_code_target("specification-document.md") # Returns the name of the python module this specification describes, or None if it does not describe a module (i.e. is just documentation)
@@ -26,11 +22,9 @@ get_code_target("specification-document.md") # Returns the name of the python mo
 
 Parse the markdown file into a Section using [[markdown-parser]]
 
-### def list_imports(spec_path: str) -> List[str]
+### def list_import_for_block(block: TextBlock) -> List[str]
 
-List imports for the whole file by passing each text block into list_import_for_block which:
-
-- Checks if there are any strings matching `\[\[([a-zA-Z\d \-\/]+)\]\]` and extracts the dependency name
+- Checks if there are any strings in the block match `\[\[([a-zA-Z\d \-\/]+)\]\]` and extracts the dependency name
 
 This parses out dependencies from the text block which are described in Obsidian form, i.e.:
 
@@ -39,13 +33,20 @@ Reference to [[file]] or [[path/to/file]]
 ```
 
 The returned list of import file names must have an extension. If there is no extension, add `.md` to the end of the filename.
-### def describe_interface(spec_path: str) -> SectionBlock
+### def describe_dependency_interfaces(spec_path: str) -> Section
 
-Finds all the blocks that are likely to describe the interface of the module. Will have titles like "Interface" or "Usage".
+Describes all the interfaces that we need to be aware of to implement this module - visits all dependencies of the spec file and collects the exported API details from each spec file we depend on.
 
-For each second level block (`##`), ask claude-haiku if the block with this title is likely describing the interface or usage instructions for the module by other python modules. Include any second level block which is describing the interface of the module in the output context block. Also include any top level TextBlock in the output context block.
+- We create a list of `dependencies_to_visit` that are required to understand this interface by calling `list_import_for_block` on all `TextBlock`s in the spec file
+- Then we loop while we still have `dependencies_to_visit`
+	- We call `get_public_interface_blocks` on each unvisited dependency
+	- We call list_import_for_block on all the TextBlocks in the dependency we are visiting
+	- We add any new unvisited dependencies to the to_visit list
+- When this loop is finished we have a complete set of interface descriptions that is required for this file
 
-Once we've created the SectionBlock with only the relevant blocks, we call list_imports() on it to get the dependencies that are required to understand this interface, then we load those files (remember that these files are relative to the spec file, not the current working directory), call describe_interface() on them, and prepend the result to the SectionBlock (this is the extra required context that is needed to understand the interface). We ignore dependencies already in this interface, and we stop when we have no more dependencies to load.
+#### def get_public_interface_blocks(spec_path: str) -> Section
+
+This function reads the spec file, and for each second level block (`##`), checks if the title is "Interface", "Usage", "Api",  "public" or "exported" (ignore case) and therefore this block is describing the interface or usage instructions for the module by other python modules. Include any second level block which is describing the interface of the module in the output Section. Also include any top level TextBlock in the output.
 
 #### Import Resolution and Error Handling
 
@@ -59,7 +60,7 @@ Once we've created the SectionBlock with only the relevant blocks, we call list_
 
 A convenience function that:
 1. Loads a specification document using load_specification_document
-2. Calls describe_interface with the correct spec_path to ensure proper relative import resolution
+2. Calls describe_dependency_interfaces with the correct spec_path to ensure proper relative import resolution
 3. Handles and re-raises any exceptions with appropriate error messages
 4. Returns a modified markdown document with the described interfaces prepended to the spec
 
