@@ -28,9 +28,9 @@ Always implement these prompts verbatim, using jinja2 templates.
 
 ### Building spec with context
 
-Use describe_interface() from @specification-document.md to get the full interface context that will be required to understand this modules implementation. and prepend it to the spec document in a single SectionBlock with title "Interface context".
+Use preprocess_spec_context() from @specification-document.md to get the full interface context that will be required to preprocess the spec into a context-free spec, which contains all the information required to implement the module.
 
-Re-render this new spec with context into an intermediate file at `slop/module-name.context.md`.
+Re-render this new spec with context into an intermediate file at `slop/module-name.no-context.md`.
 
 ### System prompt
 

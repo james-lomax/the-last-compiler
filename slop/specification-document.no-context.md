@@ -1,5 +1,46 @@
 # specification_document.py
 
+## Dependency: markdown-parser.md
+
+### Interface
+
+Defines function parse_markdown(path: str) -> List[Block]
+
+Parse a specification document as a markdown file. This allows us to ignore references defined with  when we're reading code blocks, and allows us to keep some sections and discard others in the prompting.
+
+Markdown files are parsed into a tree of Block objects.
+
+Block is an abstract class.
+
+Implementations (dataclass definitions):
+
+- class TextBlock(Block)
+  - text: str
+- class CodeBlock(Block)
+  - language: str
+  - code: str
+- class Section(Block)
+  - title: str
+  - children: list[Block]
+
+
+## Usage
+
+Depends on the block structure defined in @markdown-parser.md
+
+```python
+imports = list_imports("specification-document.md") # ["llm/simple-chat-chain.md", "markdown-parser.md"]
+
+describe_interface("specification-document.md") # Returns a SectionBlock with the same title as the spec, but only the sub-blocks that describe the interface of the module, and the interfaces of the modules required to understand this interface
+
+preprocess_spec_context("specification-document.md") # Returns a modified markdown document with the described interfaces prepended to the spec
+```
+
+
+---
+
+# specification_document.py
+
 ## Dependencies
 
 - @llm/simple-chat-chain.md
@@ -27,7 +68,7 @@ List imports for the whole file by passing each text block into list_import_for_
 
 - Ask claude-haiku to list the imports
     - the system prompt will tell Claude it must consider `@path/to/file.md` as a dependency and save list the dependencies line by line
-    - In the system prompt, instruct the model to return only the dependencies, one per line, without any other text. Instruct the model to return "no dependencies" if it can't find any dependencies, and find this text in the response to skip the rest of the function and return an empty list.
+    - In the system prompt, instruct the model to return only the dependencies, one per line, without any other text. Instruct the model to return nothing if it can't find any dependencies.
 
 ### def describe_interface(spec_path: str) -> SectionBlock
 
