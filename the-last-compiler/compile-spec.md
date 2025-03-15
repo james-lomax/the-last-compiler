@@ -11,6 +11,9 @@ compile-spec <module-name.md>
 
 The compile step is always preceded by the sanity check step, using [[sanity-check-spec]]. This preprocesses the specification, produces a Q&A, and fails if the spec is not ready to implement.
 
+### Inputs
+
+- `checked_spec` is the `CheckedSpec` returned by `sanity_check_spec` in [[sanity-check-spec]]
 ### System prompt
 
 This system prompt is used in all the following chat prompt steps.
@@ -28,9 +31,8 @@ The specification files should generally define:
 Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
 ```
 
-### Inputs
+Instantiate a `SimpleChat` with the `debug_name = f"{checked_spec.module_name}.compile"
 
-- `checked_spec` is the `CheckedSpec` returned by `sanity_check_spec` in [[sanity-check-spec]]
 ### One shot code generation prompt step
 
 When the spec is ready, `compile-spec` performs code generation one-shot - a single code generation prompt is used to produce the output file, which is saved to the code target file in the `tlc/` directory.
@@ -77,7 +79,7 @@ AI responds with some thoughts, and then:
 Answering only yes or no, is this implementation ready to use?
 ```
 
-If response is "yes", stop, printing "Compile succeeded"
+If response is "yes", stop, print "Compile succeeded"
 
 If response is "no", ask a follow up:
 

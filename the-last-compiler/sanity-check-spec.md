@@ -66,6 +66,8 @@ The specification files should generally define:
 Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
 ```
 
+Instantiate a `SimpleChat` with the `debug_name = f"{checked_spec.module_name}.sanity"
+
 ### Chat chain - Sense check and Q&A prep
 
 The following section describes the precise prompts we should use with the Chatmodel.
