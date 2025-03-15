@@ -281,7 +281,7 @@ For each top level item in the AST:
     - Otherwise, if the heading level is more than 1 greater than the current_level:
         - Fail with an error
 - If the item is a paragraph:
-    - Create a TextBlock with the paragraph text - render markdown completely from this AST node (we don't care about the structure within the paragraph)
+    - Create a TextBlock with the paragraph text - render markdown completely from this AST node (we don't care about the structure within the paragraph). Use the code below with InlineMarkdownRenderer to render the paragraph block as a string properly.
     - Add this TextBlock to the children of the current_section
 - If the item is a list:
     - Create a TextBlock with the list text - render markdown completely from this AST node (we don't care about the structure within the paragraph)
@@ -299,9 +299,25 @@ To render an AST (a list of nodes) we can use the MarkdownRenderer.
 ```python
 from mistune.renderers.markdown import MarkdownRenderer
 
+class InlineMarkdownRenderer(MarkdownRenderer):
+    def strikethrough(self, token, state):
+        return '~~' + self.render_children(token, state) + '~~'
+    
+    def link(self, token, state):
+        return f"[{self.render_children(token, state)}]({token['href']})"
+    
+    def emphasis(self, token, state):
+        return '*' + self.render_children(token, state) + '*'
+    
+    def strong(self, token, state):
+        return '**' + self.render_children(token, state) + '**'
+    
+    def codespan(self, token, state):
+        return '`' + self.render_children(token, state) + '`'
+
 ast = [...]
 
-renderer = MarkdownRenderer()
+renderer = InlineMarkdownRenderer()
 result = renderer(ast, mistune.BlockState())
 ```
 

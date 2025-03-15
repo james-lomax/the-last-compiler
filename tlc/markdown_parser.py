@@ -85,21 +85,32 @@ class Section(Block):
                 ast.append({"type": "blank_line"})
         
         return ast
+    
+
+class InlineMarkdownRenderer(MarkdownRenderer):
+    def strikethrough(self, token, state):
+        return '~~' + self.render_children(token, state) + '~~'
+    
+    def link(self, token, state):
+        return f"[{self.render_children(token, state)}]({token['href']})"
+    
+    def emphasis(self, token, state):
+        return '*' + self.render_children(token, state) + '*'
+    
+    def strong(self, token, state):
+        return '**' + self.render_children(token, state) + '**'
+    
+    def codespan(self, token, state):
+        return f'`{token["raw"]}`'
 
 def _extract_text(node: dict) -> str:
     """Extract text from a node that may contain children with text."""
-    if node.get("type") == "text":
-        return node.get("raw", "")
-    
-    text = ""
-    for child in node.get("children", []):
-        text += _extract_text(child)
-    
-    return text
+    renderer = InlineMarkdownRenderer()
+    return renderer([node], mistune.BlockState())
 
 def _render_ast_to_text(ast: List[dict]) -> str:
     """Render an AST to plain text."""
-    renderer = MarkdownRenderer()
+    renderer = InlineMarkdownRenderer()
     return renderer(ast, mistune.BlockState())
 
 def _process_ast(ast: List[dict]) -> List[Block]:
@@ -210,7 +221,7 @@ def render_markdown(blocks: List[Block]) -> str:
     for block in blocks:
         ast.extend(block.make_ast())
     
-    renderer = MarkdownRenderer()
+    renderer = InlineMarkdownRenderer()
     return renderer(ast, mistune.BlockState())
 
 # CLI for testing
