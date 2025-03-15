@@ -67,10 +67,19 @@ We will use langchain-anthropic to implement the SimpleChat class. This class wi
 Instantiate ChatAnthropic with:
 
 ```python
-ChatAnthropic(
+model = ChatAnthropic(
     model="claude-3-7-sonnet-latest",
     api_key=api_key,
 )
+```
+
+To ensure large responses are handled correctly, we should invoke the chat model with stream, e.g.:
+```python
+stream = model.stream(messages)
+full = next(stream)
+for chunk in stream:
+    full += chunk
+full
 ```
 
 We must setup a cache using langchains SQLite cache, calling the folowing at the top of the file:

@@ -1,0 +1,3 @@
+- Obsidian linking support (`[[ ]]`) instead of @
+- Support for referencing python modules
+- `tlc [init|check|compile|build|version]` command

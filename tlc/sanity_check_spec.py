@@ -1,227 +1,211 @@
-#!/usr/bin/env python3
-"""
-Sanity check for specification files.
-
-This program checks if a specification file is well defined enough to be compiled into code,
-and generates a Q&A file to handle ambiguities.
-"""
-
 import os
 import sys
 import logging
 import argparse
 from pathlib import Path
-from typing import Optional
+import jinja2
 
 from tlc.llm.simple_chat_chain import SimpleChat
-from tlc.specification_document import preprocess_spec_context
-from tlc.llm.langchain_logging import save_logs
+from tlc.specification_document import preprocess_spec_context, get_code_target
 
-# Configure logging
-def setup_logging(module_name: str):
-    """Set up logging for the module."""
+def setup_logging(module_name):
+    """
+    Set up logging for the sanity check process.
+    
+    Args:
+        module_name: The name of the module being checked
+    """
     # Create logs directory if it doesn't exist
     log_dir = Path("tlc/logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Configure file handler
-    file_handler = logging.FileHandler(log_dir / f"{module_name}.log")
+    # Set up file handler
+    log_file = log_dir / f"{module_name}.log"
+    file_handler = logging.FileHandler(log_file)
     file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(logging.DEBUG)
     
-    # Configure console handler
+    # Set up console handler
     console_handler = logging.StreamHandler()
     console_formatter = logging.Formatter('%(message)s')
     console_handler.setFormatter(console_formatter)
     console_handler.setLevel(logging.INFO)
     
     # Configure root logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
-    return logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
 
-def get_module_name(spec_path: str) -> str:
+def get_module_name(spec_path):
     """
-    Extract the module name from the specification file path.
+    Extract the module name from the specification path.
     
     Args:
-        spec_path: Path to the specification file
+        spec_path: Path to the specification document
         
     Returns:
-        The module name
+        The module name without extension
     """
-    # Get the filename without extension
-    filename = os.path.basename(spec_path)
-    module_name = os.path.splitext(filename)[0]
-    return module_name
+    return Path(spec_path).stem
 
-def read_qa_file(module_name: str) -> Optional[str]:
+def sanity_check_spec(spec_path, q_and_a_path=None):
     """
-    Read the Q&A file if it exists.
+    Perform a sanity check on the specification document.
     
     Args:
-        module_name: The module name
+        spec_path: Path to the specification document
+        q_and_a_path: Optional path to an existing Q&A file
         
     Returns:
-        The content of the Q&A file or None if it doesn't exist
+        A tuple of (build_failed, has_questions, q_and_a_content)
     """
-    qa_path = Path(f"tlc/{module_name}.questions.md")
-    if qa_path.exists():
-        with open(qa_path, "r") as f:
-            return f.read()
-    return None
-
-def write_qa_file(module_name: str, content: str):
-    """
-    Write the Q&A file.
+    logging.info(f"Sanity checking specification: {spec_path}")
     
-    Args:
-        module_name: The module name
-        content: The content to write
-    """
-    qa_path = Path(f"tlc/{module_name}.questions.md")
-    with open(qa_path, "w") as f:
-        f.write(content)
-    logging.info(f"Updated Q&A file: {qa_path}")
-
-def write_context_free_spec(module_name: str, content: str):
-    """
-    Write the context-free specification file.
+    # Preprocess the spec to be context-free
+    logging.info("Preprocessing specification to be context-free")
+    no_context_spec = preprocess_spec_context(spec_path)
     
-    Args:
-        module_name: The module name
-        content: The content to write
-    """
-    spec_path = Path(f"tlc/{module_name}.no-context.md")
-    with open(spec_path, "w") as f:
-        f.write(content)
-    logging.info(f"Updated context-free spec file: {spec_path}")
-
-def sanity_check_spec(spec_path: str):
-    """
-    Check if a specification file is well defined enough to be compiled into code.
+    # Check if this document is intended to produce code
+    code_target = get_code_target(spec_path)
+    if code_target is None:
+        logging.info(f"No need to compile {spec_path} as it contains no code target")
+        return False, False, None
     
-    Args:
-        spec_path: Path to the specification file
-    """
+    # Save the preprocessed spec
     module_name = get_module_name(spec_path)
-    logger = setup_logging(module_name)
+    no_context_path = Path(f"tlc/{module_name}.no-context.md")
+    with open(no_context_path, "w") as f:
+        f.write(no_context_spec)
+    logging.info(f"Saved context-free spec to {no_context_path}")
     
-    try:
-        logger.info(f"Processing specification file: {spec_path}")
-        
-        # Preprocess the spec to be context-free
-        logger.info("Preprocessing spec to be context-free")
-        context_free_spec = preprocess_spec_context(spec_path)
-        write_context_free_spec(module_name, context_free_spec)
-        
-        # Read the Q&A file if it exists
-        q_and_a = read_qa_file(module_name)
-        
-        # Create the chat model
-        system_prompt = """
-        You are a specification compiler. You take markdown documents describing the implementation of a single python module file and turn them into code.
+    # Load existing Q&A if available
+    q_and_a_content = None
+    if q_and_a_path and os.path.exists(q_and_a_path):
+        with open(q_and_a_path, "r") as f:
+            q_and_a_content = f.read()
+        logging.info(f"Loaded existing Q&A from {q_and_a_path}")
+    
+    # Create a chat instance with the system prompt
+    system_prompt = """
+    You are a specification compiler. You take markdown documents describing the implementation of a single python module file and turn them into code.
 
-        The specification files should generally define:
-        - Dependencies on other modules (named like [[path/to/module]])
-        - the inputs and outputs of the program
-        - the command arguments of the program
-        - how the program is implemented
+    The specification files should generally define:
+    - Dependencies on other modules (named like [[path/to/module]])
+    - The interface this module exposes and how it is used
+    - the inputs and outputs of the program
+    - the command arguments of the program
+    - how the program is implemented
 
-        Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
-        """
-        
-        chat = SimpleChat(system_prompt, model="claude-sonnet")
-        
-        # Step 1: Sanity check the spec
-        logger.info("Performing initial sanity check")
-        prompt = f"Read the spec\n\n{context_free_spec}\n\nIs it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?"
-        response = chat.call(prompt)
-        logger.debug(f"Sanity check response:\n{response}")
-        
-        # Step 2: Ask if we have enough information
-        logger.info("Checking if we have enough information to implement")
+    Sometimes specifications may include pseudo-code, intended to make it clear about how a bit of the program should be implemented.
+    """
+    
+    chat = SimpleChat(system_prompt, model="claude-sonnet")
+    
+    # First prompt: Initial sanity check
+    logging.info("Performing initial sanity check")
+    prompt_template = """
+    Read the spec
+
+    {{ spec }}
+
+    Is it ambiguous? Are there problems that the spec doesn't address? Are there unanswered questions? Are there references to concepts that are not yet defined and understood?
+    """
+    
+    response = chat.call(prompt_template, spec=no_context_spec)
+    logging.debug(f"Initial sanity check response:\n{response}")
+    
+    # Second prompt: Evaluate if we have enough information
+    logging.info("Evaluating if we have enough information")
+    prompt_template = """
+    {% if q_and_a %}
+    Here is a Q&A from our last review of this document:
+
+    {{ q_and_a }}{% endif %}
+
+    Do we have enough information to implement this specification in code? Does this implementation make sense? Will it work? Why not?
+
+    We are allowed to make reasonable assumptions, but we must explain them.
+    """
+    
+    explanation = chat.call(prompt_template, q_and_a=q_and_a_content)
+    logging.debug(f"Evaluation response:\n{explanation}")
+    
+    # Third prompt: Should we build this?
+    logging.info("Determining if we should build this")
+    prompt_template = """
+    In summary, should we build this, or do we need to improve the spec? Just answer yes or no, nothing else.
+    """
+    
+    build_response = chat.call(prompt_template)
+    build_failed = build_response.lower().strip() == "no"
+    logging.debug(f"Build decision: {'No' if build_failed else 'Yes'}")
+    
+    # Fourth prompt: Are there unanswered questions?
+    logging.info("Checking for unanswered questions")
+    prompt_template = """
+    Are there unanswered questions? Just answer yes or no, nothing else.
+    """
+    
+    questions_response = chat.call(prompt_template)
+    has_questions = questions_response.lower().strip() == "yes"
+    logging.debug(f"Has questions: {'Yes' if has_questions else 'No'}")
+    
+    # If there are questions, generate Q&A
+    if has_questions:
+        logging.info("Generating Q&A")
         prompt_template = """
-        {% if q_and_a %}
-        Here is a Q&A from our last review of this document:
+        List all the unanswered questions or clarifications, and besides each one, write your best assumption on the answer.
 
-        {q_and_a}{% endif %}
+        Do not number the questions, just list them like this:
 
-        Do we have enough information to implement this specification in code? Does this implementation make sense? Will it work? Why not?
+        **Question**: {{ "{question}" }}
+          **Assumption**: {{ "{assumption}" }}
 
-        We are allowed to make reasonable assumptions, but we must explain them.
+        If there is an **Answer** from the last review, you must keep it the same.
         """
         
-        prompt = prompt_template.replace("{q_and_a}", q_and_a if q_and_a else "")
-        if "{% if q_and_a %}" in prompt:
-            # Handle the Jinja2 template manually since we're not using Jinja2 here
-            if q_and_a:
-                prompt = prompt.replace("{% if q_and_a %}", "")
-                prompt = prompt.replace("{% endif %}", "")
-            else:
-                # Remove the entire conditional block
-                start_idx = prompt.find("{% if q_and_a %}")
-                end_idx = prompt.find("{% endif %}") + len("{% endif %}")
-                prompt = prompt[:start_idx] + prompt[end_idx:]
-        
-        explanation = chat.call(prompt)
-        logger.debug(f"Information check response:\n{explanation}")
-        
-        # Step 3: Should we build this?
-        logger.info("Determining if we should build this")
-        response = chat.call("In summary, should we build this, or do we need to improve the spec? Just answer yes or no, nothing else.")
-        build_failed = response.lower().strip() == "no"
-        logger.debug(f"Build decision: {'No' if build_failed else 'Yes'}")
-        
-        # Step 4: Are there unanswered questions?
-        logger.info("Checking for unanswered questions")
-        response = chat.call("Are there unanswered questions? Just answer yes or no, nothing else.")
-        has_questions = response.lower().strip() == "yes"
-        logger.debug(f"Has unanswered questions: {'Yes' if has_questions else 'No'}")
-        
-        # Step 5: Generate Q&A file if needed
-        if has_questions:
-            logger.info("Generating Q&A file")
-            prompt = """
-            List all the unanswered questions or clarifications, and besides each one, write your best assumption on the answer.
-
-            Do not number the questions, just list them like this:
-
-            **Question**: {question}
-              **Assumption**: {assumption}
-
-            If there is an **Answer** from the last review, you must keep it the same.
-            """
-            
-            qa_content = chat.call(prompt)
-            write_qa_file(module_name, qa_content)
-        
-        # Print summary
-        if build_failed:
-            logger.info("RESULT: The specification needs improvement before it can be built.")
-            logger.info(f"Explanation: {explanation}")
-        else:
-            logger.info("RESULT: The specification is ready to be built.")
-        
-        if has_questions:
-            logger.info(f"Questions and assumptions have been written to tlc/{module_name}.questions.md")
+        q_and_a_content = chat.call(prompt_template)
+        logging.debug(f"Generated Q&A:\n{q_and_a_content}")
     
-    finally:
-        # Save logs
-        save_logs()
+    return build_failed, has_questions, q_and_a_content
 
 def main():
-    """Main entry point for the program."""
-    parser = argparse.ArgumentParser(description="Check if a specification file is well defined enough to be compiled into code.")
-    parser.add_argument("spec_path", help="Path to the specification file")
-    
+    """Main entry point for the sanity check tool."""
+    parser = argparse.ArgumentParser(description="Sanity check a specification document")
+    parser.add_argument("spec_path", help="Path to the specification document")
     args = parser.parse_args()
     
-    sanity_check_spec(args.spec_path)
+    # Get the module name for logging
+    module_name = get_module_name(args.spec_path)
+    
+    # Set up logging
+    setup_logging(module_name)
+    
+    try:
+        # Path to the Q&A file
+        q_and_a_path = Path(f"tlc/{module_name}.questions.md")
+        
+        # Perform the sanity check
+        build_failed, has_questions, q_and_a_content = sanity_check_spec(args.spec_path, q_and_a_path)
+        
+        # Save the Q&A if there are questions
+        if has_questions and q_and_a_content:
+            with open(q_and_a_path, "w") as f:
+                f.write(q_and_a_content)
+            logging.info(f"Saved Q&A to {q_and_a_path}")
+        
+        # Report the result
+        if build_failed:
+            logging.info("Sanity check failed. The specification needs improvement.")
+            sys.exit(1)
+        else:
+            logging.info("Sanity check passed. The specification is ready to be compiled.")
+            sys.exit(0)
+    except Exception as e:
+        logging.error(f"Error during sanity check: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

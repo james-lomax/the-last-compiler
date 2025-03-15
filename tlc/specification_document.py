@@ -1,257 +1,333 @@
 import os
-import sys
 import re
-from typing import List, Optional, Set
+from typing import List, Optional
 from pathlib import Path
 
-from tlc.markdown_parser import parse_markdown, render_markdown, Block, Section, TextBlock, CodeBlock
+from tlc.markdown_parser import parse_markdown, Block, TextBlock, CodeBlock, Section
 from tlc.llm.simple_chat_chain import SimpleChat
-from tlc.llm.langchain_logging import log_chat, save_logs
-
-def load_specification_document(spec_path: str) -> Section:
-    """
-    Load a specification document from a file.
-    
-    Args:
-        spec_path: Path to the specification document
-        
-    Returns:
-        The root section of the document
-    """
-    blocks = parse_markdown(spec_path)
-    if not blocks or not isinstance(blocks[0], Section):
-        raise ValueError(f"Invalid specification document: {spec_path}")
-    
-    return blocks[0]
 
 def list_imports(spec_path: str) -> List[str]:
     """
-    List imports for the whole file by parsing each text block and asking the LLM to identify dependencies.
+    List all imports referenced in the specification document.
     
     Args:
         spec_path: Path to the specification document
         
     Returns:
-        List of dependencies as strings
+        A list of import paths
     """
-    try:
-        root_section = load_specification_document(spec_path)
-        imports = []
-        
-        # First try to extract imports using regex
-        for block in root_section.children:
-            if isinstance(block, TextBlock):
-                # Look for [[path/to/file]] patterns
-                matches = re.findall(r'\[\[([^\s\n]+)\]\]', block.text)
-                if matches:
-                    imports.extend(matches)
-                else:
-                    # If regex doesn't find anything, use LLM
-                    block_imports = _list_imports_for_block(block.text)
-                    imports.extend(block_imports)
-        
-        # Remove duplicates while preserving order
-        unique_imports = []
-        for imp in imports:
-            if imp not in unique_imports:
-                unique_imports.append(imp)
-        
-        return unique_imports
-    except Exception as e:
-        print(f"Error listing imports for {spec_path}: {e}")
-        raise
+    blocks = parse_markdown(spec_path)
+    imports = []
+    
+    # Process each block to find imports
+    for block in blocks:
+        if isinstance(block, Section):
+            # Recursively process sections
+            for child in block.children:
+                if isinstance(child, TextBlock):
+                    imports.extend(_list_imports_for_block(child.text))
+                elif isinstance(child, Section):
+                    # Process nested sections
+                    section_imports = _process_section_for_imports(child)
+                    imports.extend(section_imports)
+    
+    # Remove duplicates while preserving order
+    unique_imports = []
+    for imp in imports:
+        if imp not in unique_imports:
+            unique_imports.append(imp)
+    
+    return unique_imports
 
 def _list_imports_for_block(text: str) -> List[str]:
     """
-    Ask the LLM to identify imports in a text block.
+    Extract imports from a text block using Claude.
     
     Args:
         text: The text content to analyze
         
     Returns:
-        List of dependencies found in the text
+        A list of import paths
     """
-    system_prompt = """
-    You are an assistant that identifies dependencies in markdown specification documents.
-    Dependencies are indicated by '[[path/to/file]]' syntax in the text.
-    Your task is to extract these dependencies and list them one per line.
-    Only return the dependencies, without any additional text - strip the `[[` and `]]` from the dependencies.
-    If there are no dependencies, respond with "no dependencies".
-    """
+    # Use regex to find all [[path/to/file]] patterns
+    import_pattern = r'\[\[(.*?)\]\]'
+    matches = re.findall(import_pattern, text)
     
-    try:
+    # If no matches found using regex, try using Claude
+    if not matches:
+        # Create a chat instance with Claude Haiku
+        system_prompt = """
+        You are a dependency analyzer. Your task is to identify dependencies in markdown text.
+        Dependencies are specified using the syntax [[path/to/file]].
+        You must list these dependencies one per line, without any other text.
+        If there are no dependencies, respond with "no dependencies".
+        """
+        
         chat = SimpleChat(system_prompt, model="claude-haiku")
-        response = chat.call("Identify all dependencies in the following text:\n\n{{text}}", text=text)
+        
+        # Ask Claude to identify dependencies
+        response = chat.call(
+            "Identify all dependencies in this text that use the [[path/to/file]] syntax. List them one per line:\n\n{{ text }}",
+            text=text
+        )
         
         # Process the response
         if "no dependencies" in response.lower():
             return []
         
-        # Extract dependencies from the response
-        dependencies = []
-        for line in response.strip().split('\n'):
-            line = line.strip()
-            dependencies.append(line)
+        # Split the response by lines and clean up
+        potential_imports = [line.strip() for line in response.split('\n') if line.strip()]
         
-        return dependencies
-    except Exception as e:
-        print(f"Error identifying imports in block: {e}")
-        return []
+        # Filter to only include valid import patterns
+        matches = []
+        for imp in potential_imports:
+            # Extract the path from [[path]] if present
+            import_match = re.search(r'\[\[(.*?)\]\]', imp)
+            if import_match:
+                matches.append(import_match.group(1))
+            # If it's just a plain path without brackets, include it if it looks valid
+            elif '/' in imp or '.' in imp:
+                matches.append(imp)
+    
+    # Ensure all imports end with .md if they don't have an extension
+    normalized_imports = []
+    for imp in matches:
+        if not os.path.splitext(imp)[1]:
+            normalized_imports.append(f"{imp}.md")
+        else:
+            normalized_imports.append(imp)
+    
+    return normalized_imports
 
-def describe_interface(spec_path: str, processed_deps: Optional[Set[str]] = None) -> Section:
+def _process_section_for_imports(section: Section) -> List[str]:
     """
-    Find blocks that describe the interface of the module and create a Section with those blocks.
-    Also includes interfaces from dependencies.
+    Process a section and its children for imports.
+    
+    Args:
+        section: The section to process
+        
+    Returns:
+        A list of import paths
+    """
+    imports = []
+    
+    for child in section.children:
+        if isinstance(child, TextBlock):
+            imports.extend(_list_imports_for_block(child.text))
+        elif isinstance(child, Section):
+            # Recursively process nested sections
+            section_imports = _process_section_for_imports(child)
+            imports.extend(section_imports)
+    
+    return imports
+
+def describe_interface(spec_path: str) -> Section:
+    """
+    Find blocks that describe the interface of the module.
     
     Args:
         spec_path: Path to the specification document
-        processed_deps: Set of already processed dependencies to avoid cycles
         
     Returns:
-        Section block with interface description
+        A Section block containing the interface description
     """
-    if processed_deps is None:
-        processed_deps = set()
+    blocks = parse_markdown(spec_path)
+    if not blocks or not isinstance(blocks[0], Section):
+        raise ValueError(f"Invalid specification document: {spec_path}")
+    
+    root_section = blocks[0]
+    
+    # Create a new section with the same title
+    interface_section = Section(title=root_section.title, children=[])
+    
+    # Add top-level text blocks
+    for child in root_section.children:
+        if isinstance(child, TextBlock):
+            interface_section.children.append(child)
+    
+    # Find interface-related sections
+    for child in root_section.children:
+        if isinstance(child, Section):
+            if _is_interface_section(child):
+                interface_section.children.append(child)
+    
+    # Process dependencies
+    processed_deps = set()
+    deps_to_process = list_imports(spec_path)
+    
+    # Process dependencies until we have no more to process
+    while deps_to_process:
+        dep = deps_to_process.pop(0)
         
-    try:
-        root_section = load_specification_document(spec_path)
-        interface_blocks = []
+        if dep in processed_deps:
+            continue
         
-        # Include top-level TextBlocks
-        for block in root_section.children:
-            if isinstance(block, TextBlock):
-                interface_blocks.append(block)
+        processed_deps.add(dep)
         
-        # Process second-level sections to find interface descriptions
-        for block in root_section.children:
-            if isinstance(block, Section):
-                if _is_interface_section(block.title, block):
-                    interface_blocks.append(block)
+        # Resolve the dependency path
+        dep_path = _resolve_import_path(dep, os.path.dirname(spec_path))
         
-        # Create a new section with the interface blocks
-        interface_section = Section(title=root_section.title, children=interface_blocks)
-        
-        # Get dependencies required to understand this interface
-        dependencies = list_imports(spec_path)
-        
-        # Process dependencies
-        spec_dir = os.path.dirname(os.path.abspath(spec_path))
-        for dep in dependencies:
-            if dep in processed_deps:
-                continue
-                
-            dep_path = os.path.join(spec_dir, dep)
-            try:
-                if not os.path.exists(dep_path):
-                    raise FileNotFoundError(f"Dependency not found: {dep_path}")
-                
-                # Add to processed deps to avoid cycles
-                processed_deps.add(dep)
-                
-                # Get the interface of the dependency
-                dep_interface = describe_interface(dep_path, processed_deps)
-                
-                # Prepend the dependency interface to our interface section
-                interface_section.children = dep_interface.children + interface_section.children
-            except FileNotFoundError as e:
-                print(f"Error: {e}")
-                raise
-            except Exception as e:
-                print(f"Error processing dependency {dep}: {e}")
-                raise
-        
-        return interface_section
-    except Exception as e:
-        print(f"Error describing interface for {spec_path}: {e}")
-        raise
+        try:
+            # Get the interface of the dependency
+            dep_interface = describe_interface(dep_path)
+            
+            # Add the dependency interface to our interface section
+            interface_section.children.insert(0, dep_interface)
+            
+            # Add the dependency's dependencies to our list
+            new_deps = list_imports(dep_path)
+            for new_dep in new_deps:
+                if new_dep not in processed_deps:
+                    deps_to_process.append(new_dep)
+        except FileNotFoundError as e:
+            print(f"Error: Could not find dependency {dep}: {e}")
+            raise
+        except Exception as e:
+            print(f"Error loading dependency {dep}: {e}")
+            raise
+    
+    return interface_section
 
-def _is_interface_section(title: str, section: Section) -> bool:
+def _is_interface_section(section: Section) -> bool:
     """
-    Ask the LLM if a section describes the interface or usage of the module.
+    Determine if a section is likely describing the interface.
     
     Args:
-        title: The title of the section
-        section: The section to analyze
+        section: The section to check
         
     Returns:
-        True if the section describes the interface, False otherwise
+        True if the section is likely an interface section, False otherwise
     """
-    # Common titles that typically describe interfaces
-    interface_titles = ["interface", "usage", "api", "public api", "functions", "methods"]
+    # Check if the section title suggests it's an interface section
+    interface_keywords = ["interface", "usage", "api", "public", "exported"]
     
-    # Check if the title is a common interface title
-    if title.lower() in interface_titles:
-        return True
+    # Convert to lowercase for case-insensitive matching
+    title_lower = section.title.lower()
     
+    # Check if any of the keywords are in the title
+    for keyword in interface_keywords:
+        if keyword in title_lower:
+            return True
+    
+    # If not obvious from the title, use Claude to determine
     system_prompt = """
-    You are an assistant that analyzes markdown sections to determine if they describe 
-    the interface or usage instructions of a module.
-    
-    Your task is to determine if the given section with the provided title is likely 
-    describing the interface or usage instructions for the module by other Python modules.
-    
-    Respond with only "yes" or "no".
+    You are an expert at identifying interface descriptions in software documentation.
+    Your task is to determine if a section describes the interface or usage instructions for a module.
+    Answer with only 'yes' or 'no'.
     """
     
-    # Convert the section to text for analysis
-    section_text = render_markdown([section])
+    chat = SimpleChat(system_prompt, model="claude-haiku")
     
-    try:
-        chat = SimpleChat(system_prompt, model="claude-haiku")
-        prompt = f"Does the following section titled '{title}' describe the interface or usage instructions of a module?\n\n{section_text}"
-        response = chat.call(prompt)
-        
-        return response.lower().strip() == "yes"
-    except Exception as e:
-        print(f"Error determining if section is an interface: {e}")
-        # Default to including the section if there's an error
-        return True
+    # Convert the section to markdown for Claude to analyze
+    from tlc.markdown_parser import render_markdown
+    section_markdown = render_markdown([section])
+    
+    response = chat.call(
+        "Does this section describe the interface or usage instructions for a module?\n\n{{ section }}",
+        section=section_markdown
+    )
+    
+    return response.lower().strip() == "yes"
 
-def preprocess_spec_context(spec_path: str) -> str:
+def _resolve_import_path(import_path: str, base_dir: str) -> str:
     """
-    Preprocess a specification document by extracting interfaces and prepending them.
+    Resolve an import path relative to the base directory.
     
     Args:
-        spec_path: Path to the specification document
+        import_path: The import path to resolve
+        base_dir: The base directory to resolve from
         
     Returns:
-        Modified markdown document as a string
+        The resolved absolute path
+    """
+    # First try direct resolution
+    direct_path = os.path.join(base_dir, import_path)
+    if os.path.exists(direct_path):
+        return direct_path
+    
+    # If that fails, try to find the file in subdirectories
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if file == os.path.basename(import_path):
+                return os.path.join(root, file)
+    
+    # If still not found, raise an error
+    raise FileNotFoundError(f"Could not find import {import_path} relative to {base_dir}")
+
+def preprocess_spec_context(path: str) -> str:
+    """
+    Preprocess a specification document to include all required interfaces.
+    
+    Args:
+        path: Path to the specification document
+        
+    Returns:
+        A modified markdown document with interfaces prepended
     """
     try:
         # Get the interface description
-        interface_section = describe_interface(spec_path)
+        interface_section = describe_interface(path)
         
-        # Load the original specification
-        root_section = load_specification_document(spec_path)
+        # Convert the interface to markdown
+        from tlc.markdown_parser import render_markdown
+        interface_markdown = render_markdown([interface_section])
         
-        # Render the interface and the original spec
-        interface_md = render_markdown([interface_section])
-        original_md = render_markdown([root_section])
+        # Read the original spec
+        with open(path, "r") as f:
+            original_spec = f.read()
         
-        return interface_md
+        # Combine the interface and original spec
+        return interface_markdown + "\n\n" + original_spec
+    except FileNotFoundError as e:
+        print(f"Error: Could not find file: {e}")
+        raise
     except Exception as e:
-        print(f"Error preprocessing spec context for {spec_path}: {e}")
+        print(f"Error preprocessing spec: {e}")
         raise
 
+def get_code_target(path: str) -> Optional[str]:
+    """
+    Get the name of the Python module this specification describes.
+    
+    Args:
+        path: Path to the specification document
+        
+    Returns:
+        The module name, or None if it's documentation only
+    """
+    blocks = parse_markdown(path)
+    if not blocks or not isinstance(blocks[0], Section):
+        raise ValueError(f"Invalid specification document: {path}")
+    
+    # Get the title of the root section
+    title = blocks[0].title
+    
+    # Check if it ends with .py
+    if title.endswith(".py"):
+        return title
+    # Check if it ends with .md (documentation only)
+    elif title.endswith(".md"):
+        return None
+    else:
+        raise ValueError(f"Invalid specification title: {title}. Must end with .py or .md")
+
 def main():
-    """CLI entry point for the module."""
-    try:
-        if len(sys.argv) < 3:
-            print("Usage: python -m tlc.specification_document preprocess <spec-path>")
-            sys.exit(1)
-        
-        command = sys.argv[1]
-        spec_path = sys.argv[2]
-        
-        if command == "preprocess":
-            result = preprocess_spec_context(spec_path)
+    """CLI entry point for the specification document processor."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Process specification documents")
+    parser.add_argument("command", choices=["preprocess"], help="Command to run")
+    parser.add_argument("spec_path", help="Path to the specification document")
+    
+    args = parser.parse_args()
+    
+    if args.command == "preprocess":
+        try:
+            result = preprocess_spec_context(args.spec_path)
             print(result)
-        else:
-            print(f"Unknown command: {command}")
-            print("Available commands: preprocess")
-            sys.exit(1)
-    finally:
-        save_logs()
+        except Exception as e:
+            print(f"Error: {e}")
+            exit(1)
 
 if __name__ == "__main__":
     main() 
