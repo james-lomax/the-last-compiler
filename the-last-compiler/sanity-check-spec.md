@@ -32,6 +32,8 @@ Use preprocess_spec_context() from [[specification-document]] to preprocess the 
 
 Re-render this new spec context-free spec into an intermediate file at `tlc/module-name.no-context.md`.
 
+Use `get_code_target()` from [[specification-document]] to determine if this document is intended to produce a code target. If it is not, stop immediately and inform the user that there is no need to compile this document because it contains no code target.
+
 ### System prompt
 
 This system prompt is used in all the following chat prompt steps.
@@ -41,6 +43,7 @@ You are a specification compiler. You take markdown documents describing the imp
 
 The specification files should generally define:
 - Dependencies on other modules (named like [[path/to/module]])
+- The interface this module exposes and how it is used
 - the inputs and outputs of the program
 - the command arguments of the program
 - how the program is implemented

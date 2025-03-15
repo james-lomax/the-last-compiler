@@ -18,3 +18,5 @@ slop/logs/*
 .langchain.db
 
 .obsidian/
+
+tlc/logs

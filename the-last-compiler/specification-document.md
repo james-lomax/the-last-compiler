@@ -18,6 +18,8 @@ imports = list_imports("specification-document.md") # ["llm/simple-chat-chain.md
 describe_interface("specification-document.md") # Returns a SectionBlock with the same title as the spec, but only the sub-blocks that describe the interface of the module, and the interfaces of the modules required to understand this interface
 
 preprocess_spec_context("specification-document.md") # Returns a modified markdown document with the described interfaces prepended to the spec
+
+get_code_target("specification-document.md") # Returns the name of the python module this specification describes, or None if it does not describe a module (i.e. is just documentation)
 ```
 
 ## Implementation
@@ -55,6 +57,12 @@ A convenience function that:
 2. Calls describe_interface with the correct spec_path to ensure proper relative import resolution
 3. Handles and re-raises any exceptions with appropriate error messages
 4. Returns a modified markdown document with the described interfaces prepended to the spec
+
+### get_code_target(path: str): str
+
+Returns the name of the python module this specification describes, or None if it does not describe a module (i.e. is just documentation).
+
+All spec documents start with a level 1 heading with the name of the target module. If the level 1 heading ends in `.py` then this is the module name, return it. If it ends in `.md` then return None, this is documentation only. Otherwise, fail with a suitable error.
 
 ### CLI
 
