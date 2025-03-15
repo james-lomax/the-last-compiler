@@ -88,6 +88,8 @@ In summary, should we build this, or do we need to improve the spec? Just answer
 
 let build_failed = response is "no"
 
+if build_failed: print "Sanity check failed. The specification needs improvement."
+
 ```jinja2
 Are there unanswered questions? Just answer yes or no, nothing else.
 ```
@@ -103,9 +105,19 @@ Do not number the questions, just list them like this:
   **Assumption**: {assumption}
 
 If there is an **Answer** from the last review, you must keep it the same.
+
+If there is no reasonable way to answer the question, do not make an assumption, just state that you don't know. If you're unsure about a particular assumption, say so.
 ```
 
-Store response in `tlc/${module_name}.questions.md` - overwrite if it exists.
+Save the response to `tlc/${module_name}.questions.md` - overwrite if it exists.
+
+Then, if build_failed is true, prompt:
+
+```jinja2
+Which questions are critical to answer in order to build this module?
+```
+
+Print the AI response to help the user fix the problem.
 
 ### Logging
 

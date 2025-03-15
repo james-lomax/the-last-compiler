@@ -153,6 +153,7 @@ def sanity_check_spec(spec_path, q_and_a_path=None):
     logging.debug(f"Has questions: {'Yes' if has_questions else 'No'}")
     
     # If there are questions, generate Q&A
+    q_and_a_content_updated = None
     if has_questions:
         logging.info("Generating Q&A")
         prompt_template = """
@@ -164,12 +165,25 @@ def sanity_check_spec(spec_path, q_and_a_path=None):
           **Assumption**: {{ "{assumption}" }}
 
         If there is an **Answer** from the last review, you must keep it the same.
+
+        If there is no reasonable way to answer the question, do not make an assumption, just state that you don't know. If you're unsure about a particular assumption, say so.
         """
         
-        q_and_a_content = chat.call(prompt_template)
-        logging.debug(f"Generated Q&A:\n{q_and_a_content}")
+        q_and_a_content_updated = chat.call(prompt_template)
+        logging.debug(f"Generated Q&A:\n{q_and_a_content_updated}")
     
-    return build_failed, has_questions, q_and_a_content
+    # If build failed, ask for critical questions
+    critical_questions = None
+    if build_failed:
+        logging.info("Identifying critical questions")
+        prompt_template = """
+        Which questions are critical to answer in order to build this module?
+        """
+        
+        critical_questions = chat.call(prompt_template)
+        logging.debug(f"Critical questions:\n{critical_questions}")
+    
+    return build_failed, has_questions, q_and_a_content_updated, critical_questions
 
 def main():
     """Main entry point for the sanity check tool."""
@@ -188,7 +202,7 @@ def main():
         q_and_a_path = Path(f"tlc/{module_name}.questions.md")
         
         # Perform the sanity check
-        build_failed, has_questions, q_and_a_content = sanity_check_spec(args.spec_path, q_and_a_path)
+        build_failed, has_questions, q_and_a_content, critical_questions = sanity_check_spec(args.spec_path, q_and_a_path)
         
         # Save the Q&A if there are questions
         if has_questions and q_and_a_content:
@@ -199,6 +213,9 @@ def main():
         # Report the result
         if build_failed:
             logging.info("Sanity check failed. The specification needs improvement.")
+            if critical_questions:
+                logging.info("Critical questions to answer:")
+                logging.info(critical_questions)
             sys.exit(1)
         else:
             logging.info("Sanity check passed. The specification is ready to be compiled.")

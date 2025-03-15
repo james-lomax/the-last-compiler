@@ -21,3 +21,18 @@
 
 **Question**: What's the relationship between the CLI command `preprocess <spec-path>` and the `preprocess_spec_context` function?
   **Assumption**: The CLI command is a wrapper that calls `preprocess_spec_context` and prints or saves the result to a file.
+
+**Question**: How should we handle relative imports like "../file.md" or "./file.md"?
+  **Assumption**: We should resolve these paths relative to the directory of the specification document being processed.
+
+**Question**: Should `describe_interface` return a SectionBlock or convert it to markdown text?
+  **Assumption**: It should return a SectionBlock as specified, and the conversion to markdown text would happen in `preprocess_spec_context`.
+
+**Question**: How should we convert Section objects back to markdown for the `preprocess_spec_context` return value?
+  **Assumption**: We need to implement a function that recursively converts the Section hierarchy back to markdown text.
+
+**Question**: How deep should dependency resolution go?
+  **Assumption**: We should follow dependencies recursively until all are resolved, but avoid circular dependencies by tracking which ones we've already processed.
+
+**Question**: Does `get_code_target` need to do a full markdown parse or just extract the first heading?
+  **Assumption**: We should do a minimal parse to extract just the first heading, then determine if it ends with ".py" or ".md".
