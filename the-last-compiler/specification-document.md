@@ -1,9 +1,12 @@
 # specification_document.py
 
+This module provides utilities for pre-processing specification documents to be used by the compiler.
+
 ## Dependencies
 
 - @llm/simple-chat-chain.md
 - @markdown-parser.md
+- @module-spec-files.md
 
 ## Usage
 
@@ -33,7 +36,7 @@ List imports for the whole file by passing each text block into list_import_for_
 
 Finds all the blocks that are likely to describe the interface of the module. Will have titles like "Interface" or "Usage".
 
-For each second level block (`##`), ask claude-haiku if the block with this title is likely describing the interface or usage instructions for the module by other python modules.
+For each second level block (`##`), ask claude-haiku if the block with this title is likely describing the interface or usage instructions for the module by other python modules. Include any second level block which is describing the interface of the module in the output context block. Also include any top level TextBlock in the output context block.
 
 Once we've created the SectionBlock with only the relevant blocks, we call list_imports() on it to get the dependencies that are required to understand this interface, then we load those files (remember that these files are relative to the spec file, not the current working directory), call describe_interface() on them, and prepend the result to the SectionBlock (this is the extra required context that is needed to understand the interface). We ignore dependencies already in this interface, and we stop when we have no more dependencies to load.
 
@@ -51,3 +54,7 @@ A convenience function that:
 2. Calls describe_interface with the correct spec_path to ensure proper relative import resolution
 3. Handles and re-raises any exceptions with appropriate error messages
 4. Returns a modified markdown document with the described interfaces prepended to the spec
+
+### CLI
+
+This module implements a CLI with one command `preprocess <spec-path>` which will preprocess the spec document into the context-free spec.

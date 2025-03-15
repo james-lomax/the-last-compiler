@@ -1,8 +1,8 @@
 # sanity-check-spec.py
 
-This program is the first step in the slop compiler. It takes a specification file and checks if it is well defined enough to be compiled into code, and generates a Q&A file to handle ambiguities.
+This program is the first step in the-last-compiler. It takes a specification file and checks if it is well defined enough to be compiled into code, and generates a Q&A file to handle ambiguities.
 
-The program works by reading an input markdown file, and performing several prompts using a langchain ChatModel (specifically Claude 3.7 Sonnet), determining what the questions that need answering are, providing assumptions where possible, deciding whether the spec is ready to be compiled into code, and if not, explaining why.
+The program works by reading an input markdown file, and performing several prompts using a langchain ChatModel (specifically Claude Sonnet), determining what the questions that need answering are, providing assumptions where possible, deciding whether the spec is ready to be compiled into code, and if not, explaining why.
 
 Usage:
 
@@ -22,15 +22,15 @@ The module name is of the form `module-name`. This refers to a module defined in
 
 ### Language Model
 
-The program uses the `claude-3-7-sonnet-latest` model via the LangChain ChatAnthropic interface and @simple-chat-chain.md. The API key should be stored in a file named `.anthropic_key` in the root directory.
+The program uses the `claude-sonnet` model using the SimpleChat interface in @simple-chat-chain.md.
 
 Always implement these prompts verbatim, using jinja2 templates.
 
-### Building spec with context
+### Preprocessing the spec to be context-free
 
-Use preprocess_spec_context() from @specification-document.md to get the full interface context that will be required to preprocess the spec into a context-free spec, which contains all the information required to implement the module.
+Use preprocess_spec_context() from @specification-document.md to preprocess the spec into a context-free spec, which contains all the information required to implement the module.
 
-Re-render this new spec with context into an intermediate file at `slop/module-name.no-context.md`.
+Re-render this new spec context-free spec into an intermediate file at `tlc/module-name.no-context.md`.
 
 ### System prompt
 
@@ -102,11 +102,11 @@ Do not number the questions, just list them like this:
 If there is an **Answer** from the last review, you must keep it the same.
 ```
 
-Store response in `slop/${module_name}.questions.md` - overwrite if it exists.
+Store response in `tlc/${module_name}.questions.md` - overwrite if it exists.
 
 ### Logging
 
-Use the standard logging library. Logging in the CLI is INFO by default, but we store in `slop/logs/${module_name}.log`. The format of the logs in the console will be to just show the message and nothing else. The format of the logs in the file will include the timestamp, logger name, log level and message.
+Use the standard logging library. Logging in the CLI is INFO by default, but we store in `tlc/logs/${module_name}.log`. The format of the logs in the console will be to just show the message and nothing else. The format of the logs in the file will include the timestamp, logger name, log level and message.
 
 - Log chat prompts and responses between the AI and user with log level `DEBUG`.
 - Log the step we're doing as level `INFO`.

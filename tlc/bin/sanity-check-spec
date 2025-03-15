@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""
+Command-line entry point for the sanity_check_spec module.
+"""
+
+import sys
+from tlc.sanity_check_spec import main
+
+if __name__ == "__main__":
+    main() 
