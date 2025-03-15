@@ -127,7 +127,7 @@ def sanity_check_spec(spec_path: str):
         You are a specification compiler. You take markdown documents describing the implementation of a single python module file and turn them into code.
 
         The specification files should generally define:
-        - Dependencies on other modules (named like @path/to/module.md)
+        - Dependencies on other modules (named like [[path/to/module]])
         - the inputs and outputs of the program
         - the command arguments of the program
         - how the program is implemented

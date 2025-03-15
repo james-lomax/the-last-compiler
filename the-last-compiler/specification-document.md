@@ -4,13 +4,13 @@ This module provides utilities for pre-processing specification documents to be 
 
 ## Dependencies
 
-- @llm/simple-chat-chain.md
-- @markdown-parser.md
-- @module-spec-files.md
+- [[llm/simple-chat-chain]]
+- [[markdown-parser]]
+- [[module-spec-files]]
 
 ## Usage
 
-Depends on the block structure defined in @markdown-parser.md
+Depends on the block structure defined in [[markdown-parser]]
 
 ```python
 imports = list_imports("specification-document.md") # ["llm/simple-chat-chain.md", "markdown-parser.md"]
@@ -22,14 +22,14 @@ preprocess_spec_context("specification-document.md") # Returns a modified markdo
 
 ## Implementation
 
-Parse the markdown file into a Section using @markdown-parser.md
+Parse the markdown file into a Section using [[markdown-parser]]
 
 ### def list_imports(spec_path: str) -> List[str]
 
 List imports for the whole file by passing each text block into list_import_for_block which:
 
 - Ask claude-haiku to list the imports
-    - the system prompt will tell Claude it must consider `@path/to/file.md` as a dependency and save list the dependencies line by line
+    - the system prompt will tell Claude it must consider `[[path/to/file]]` as a dependency and save list the dependencies line by line
     - In the system prompt, instruct the model to return only the dependencies, one per line, without any other text. Instruct the model to return "no dependencies" if it can't find any dependencies, and find this text in the response to skip the rest of the function and return an empty list.
 
 ### def describe_interface(spec_path: str) -> SectionBlock
@@ -43,6 +43,7 @@ Once we've created the SectionBlock with only the relevant blocks, we call list_
 #### Import Resolution and Error Handling
 
 - All imports are resolved relative to the spec file's directory, not the current working directory
+- If the import is specified without a complete path, we should also search sub-directories from the current spec's parent folder to attempt to find a matching module name.
 - If a dependency file cannot be found, the function must print an error message and fail by raising a FileNotFoundError
 - If there's an error loading a dependency, the function must print an error message and fail by re-raising the exception
 - The function should not continue processing or add error messages to the returned SectionBlock when a dependency cannot be found or loaded

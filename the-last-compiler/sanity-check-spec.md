@@ -12,7 +12,7 @@ sanity-check-spec module-name.md
 
 ## Import interfaces
 
-- See @simple-chat-chain.md for information how to use the SimpleChat interface to interact with the language model.
+- See [[simple-chat-chain]] for information how to use the SimpleChat interface to interact with the language model.
 
 ## Module name
 
@@ -22,13 +22,13 @@ The module name is of the form `module-name`. This refers to a module defined in
 
 ### Language Model
 
-The program uses the `claude-sonnet` model using the SimpleChat interface in @simple-chat-chain.md.
+The program uses the `claude-sonnet` model using the SimpleChat interface in [[simple-chat-chain]].
 
 Always implement these prompts verbatim, using jinja2 templates.
 
 ### Preprocessing the spec to be context-free
 
-Use preprocess_spec_context() from @specification-document.md to preprocess the spec into a context-free spec, which contains all the information required to implement the module.
+Use preprocess_spec_context() from [[specification-document]] to preprocess the spec into a context-free spec, which contains all the information required to implement the module.
 
 Re-render this new spec context-free spec into an intermediate file at `tlc/module-name.no-context.md`.
 
@@ -40,7 +40,7 @@ This system prompt is used in all the following chat prompt steps.
 You are a specification compiler. You take markdown documents describing the implementation of a single python module file and turn them into code.
 
 The specification files should generally define:
-- Dependencies on other modules (named like @path/to/module.md)
+- Dependencies on other modules (named like [[path/to/module]])
 - the inputs and outputs of the program
 - the command arguments of the program
 - how the program is implemented

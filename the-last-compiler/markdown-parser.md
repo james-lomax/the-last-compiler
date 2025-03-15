@@ -10,7 +10,7 @@ Parse a markdown file into a tree of blocks for easier handling.
 
 Defines function parse_markdown(path: str) -> List[Block]
 
-Parse a specification document as a markdown file. This allows us to ignore references defined with `@path/to/file.md` when we're reading code blocks, and allows us to keep some sections and discard others in the prompting.
+Parse a specification document as a markdown file. This allows us to ignore references defined with `[[path/to/file]]` when we're reading code blocks, and allows us to keep some sections and discard others in the prompting.
 
 Markdown files are parsed into a tree of Block objects.
 

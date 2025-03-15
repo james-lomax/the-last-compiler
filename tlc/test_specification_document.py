@@ -23,12 +23,12 @@ class TestSpecificationDocument(unittest.TestCase):
         self.mock_spec = Section(
             "Test Specification",
             [
-                TextBlock("This is a test specification with a dependency @test-dependency.md"),
+                TextBlock("This is a test specification with a dependency [[test-dependency]]"),
                 Section(
                     "Dependencies",
                     [
-                        TextBlock("- @dependency1.md"),
-                        TextBlock("- @dependency2.md"),
+                        TextBlock("- [[dependency1]]"),
+                        TextBlock("- [[dependency2]]"),
                     ]
                 ),
                 Section(

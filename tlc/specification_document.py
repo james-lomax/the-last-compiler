@@ -41,8 +41,8 @@ def list_imports(spec_path: str) -> List[str]:
         # First try to extract imports using regex
         for block in root_section.children:
             if isinstance(block, TextBlock):
-                # Look for @path/to/file.md patterns
-                matches = re.findall(r'@([^\s\n]+\.md)', block.text)
+                # Look for [[path/to/file]] patterns
+                matches = re.findall(r'\[\[([^\s\n]+)\]\]', block.text)
                 if matches:
                     imports.extend(matches)
                 else:
@@ -73,9 +73,9 @@ def _list_imports_for_block(text: str) -> List[str]:
     """
     system_prompt = """
     You are an assistant that identifies dependencies in markdown specification documents.
-    Dependencies are indicated by '@path/to/file.md' syntax in the text.
+    Dependencies are indicated by '[[path/to/file]]' syntax in the text.
     Your task is to extract these dependencies and list them one per line.
-    Only return the dependencies, without any additional text.
+    Only return the dependencies, without any additional text - strip the `[[` and `]]` from the dependencies.
     If there are no dependencies, respond with "no dependencies".
     """
     
@@ -91,12 +91,7 @@ def _list_imports_for_block(text: str) -> List[str]:
         dependencies = []
         for line in response.strip().split('\n'):
             line = line.strip()
-            if line and line.startswith('@'):
-                # Remove the @ prefix
-                dependencies.append(line[1:])
-            elif line and not line.startswith('@'):
-                # If the model forgot to include the @ symbol
-                dependencies.append(line)
+            dependencies.append(line)
         
         return dependencies
     except Exception as e:

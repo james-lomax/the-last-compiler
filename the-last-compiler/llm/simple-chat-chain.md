@@ -2,7 +2,7 @@
 
 # Use interface
 
-- @langchain-logging.md for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.
+- [[langchain-logging]] for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.
 
 ## Usage
 
@@ -84,4 +84,4 @@ set_llm_cache(SQLiteCache(database_path=".langchain.db"))
 
 ## Logging
 
-- Use @langchain-logging.md for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.
+- Use [[langchain-logging]] for logging chat invocations. Remember to `save_logs()` when done - wrap the body of main in a try finally block.

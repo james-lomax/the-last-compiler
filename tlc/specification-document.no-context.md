@@ -4,7 +4,7 @@ This module provides utilities for pre-processing specification documents to be 
 
 ## Usage
 
-Depends on the block structure defined in @markdown-parser.md
+Depends on the block structure defined in [[markdown-parser]]
 
 ```python
 imports = list_imports("specification-document.md") # ["llm/simple-chat-chain.md", "markdown-parser.md"]
