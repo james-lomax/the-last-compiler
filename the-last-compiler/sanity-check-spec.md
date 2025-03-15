@@ -30,6 +30,8 @@ Always implement these prompts verbatim, using jinja2 templates.
 
 Use describe_interface() from @specification-document.md to get the full interface context that will be required to understand this modules implementation. and prepend it to the spec document in a single SectionBlock with title "Interface context".
 
+Re-render this new spec with context into an intermediate file at `slop/module-name.context.md`.
+
 ### System prompt
 
 This system prompt is used in all the following chat prompt steps.

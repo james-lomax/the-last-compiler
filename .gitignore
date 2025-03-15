@@ -14,3 +14,5 @@ tmp/*
 .DS_Store
 
 slop/logs/*
+
+.langchain.db

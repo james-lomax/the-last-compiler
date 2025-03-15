@@ -77,7 +77,7 @@ We must setup a cache using langchains SQLite cache, calling the folowing at the
 
 ```python
 from langchain.globals import set_llm_cache
-from langchain.cache import SQLiteCache
+from langchain_community.cache import SQLiteCache
 
 set_llm_cache(SQLiteCache(database_path=".langchain.db"))
 ```
