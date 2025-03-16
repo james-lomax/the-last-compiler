@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Dict, Any
 import jinja2
 from langchain.globals import set_llm_cache
@@ -102,7 +103,9 @@ class SimpleChat:
         log_chat(self.history)
 
         if self.debug_name:
-            with open(f"logs/{self.debug_name}.{len(self.history)}.md", "a") as f:
+            logs_dir = Path(".logs")
+            logs_dir.mkdir(exist_ok=True)
+            with open(logs_dir / f"{self.debug_name}.{len(self.history)}.md", "a") as f:
                 f.writelines([_message_to_md(msg) for msg in self.history])
         
         return full_response

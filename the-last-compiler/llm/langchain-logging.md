@@ -11,7 +11,7 @@ def log_chat(messages: List[BaseMessage]) -> None:
     pass
 
 def save_logs() -> None:
-    # Save to slop/logs/session/<timestamp>.json
+    # Save to .tlc/logs/session/<timestamp>.json
     # Create the directory if it doesn't exist
     pass
 ```

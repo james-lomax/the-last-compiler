@@ -71,6 +71,7 @@ model = ChatAnthropic(
     model="claude-3-5-sonnet-latest",
     api_key=api_key,
     max_tokens=8192,
+    max_retries=10,
 )
 ```
 

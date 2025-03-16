@@ -34,6 +34,9 @@ def main():
         else:
             print("Compilation failed or produced code with issues.")
             sys.exit(1)
+    elif command == "version":
+        print(f"tlc version 0.3.0")
+        sys.exit(0)
     else:
         print(f"Unknown command: {command}")
         sys.exit(1)

@@ -137,11 +137,11 @@ def log_chat(messages: List[BaseMessage]) -> None:
 
 def save_logs() -> None:
     """
-    Save the logs to a JSON file in the slop/logs/session directory.
+    Save the logs to a JSON file in the .tlc/logs/session directory.
     Creates the directory if it doesn't exist.
     """
     # Create the logs directory if it doesn't exist
-    log_dir = os.path.join("slop", "logs", "session")
+    log_dir = os.path.join(".tlc", "logs", "session")
     os.makedirs(log_dir, exist_ok=True)
     
     # Generate a timestamp for the filename
