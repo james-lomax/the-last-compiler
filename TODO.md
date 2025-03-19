@@ -1,4 +1,38 @@
+- Fix intermediates - should be internal files (.tlc/)
+- Support for more caching - check if the input file has changed, as well as through the dependency structure
+	- Maintain an internal JSON structure of files, the last completed compile hash.
+- commands dont need .md on the end
+- Apply principals of [SOLID](https://en.wikipedia.org/wiki/SOLID)
+	- Separate `module.py` and `module_impl.py` - generate using using usage/interface section and all sections respectively (saves recompiling some bits)
+	- Stipulate SOLID requirements to module reviewer. "Would this module adhere to the single-responsibility principal?" etc
+- rebuild tlc using tlc and copy paste.
+- Implement tlc run
 - Support for referencing python modules
+- `tlc [init|check|compile|build|run|version]` command
+
+## Common uv tool structure
+
+```bash
+tlc run tool-name/command
+
+# Calls
+tlc compile tool-name/command.md
+pushd
+uv run python tool-name/tlc/command.py
+```
+
+```
+tlc install tool-name
+```
+
+Calls:
+```
+tlc build tool-name
+uv install tool-name
+```
+
+### more stuff from before
+
 - Fix compile output
 - Perform linting check on code...
 - Cache steps
